@@ -1,17 +1,7 @@
 #include < bits/++std.h>
+#include "eleman.h"
+
 using namespace std;
-
-class edge{
-
-};
-
-class eleman{
-
-};
-
-class graf{
-
-};
 
 int main(){
 
