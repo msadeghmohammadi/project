@@ -1,6 +1,5 @@
-#include < bits/++std.h>
-#include "eleman.h"
 #include <iostream>
+#include "eleman.h"
 #include <vector>
 #include <string>
 #include <map>
@@ -8,7 +7,6 @@
 #include <stdexcept>
 #include <memory>
 #include <algorithm>
-#include <Eigen/Dense>
 
 
 using namespace std;
