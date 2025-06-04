@@ -404,7 +404,56 @@ class Ground : public Node {
 public:
     Ground() : Node("GND") {}
 };
+double parseValueWithUnit(const std::string& valueStr) {
+    if (valueStr.empty()) {
+        throw CircuitError("Empty value provided");
+    }
 
+    // Find the first non-digit character (except . and e/E for scientific notation)
+    size_t unitPos = valueStr.find_first_not_of("0123456789.eE-+");
+
+    double value;
+    try {
+        if (unitPos == std::string::npos) {
+            // No unit specified
+            value = std::stod(valueStr);
+        } else {
+            // Extract numeric part
+            value = std::stod(valueStr.substr(0, unitPos));
+
+            // Get unit suffix
+            std::string unit = valueStr.substr(unitPos);
+
+            // Convert to lowercase for case-insensitive comparison
+            std::transform(unit.begin(), unit.end(), unit.begin(), ::tolower);
+
+            // Apply unit multiplier
+            if (unit == "k") {
+                value *= 1e3;  // kilo
+            } else if (unit == "meg") {
+                value *= 1e6;  // mega
+            } else if (unit == "g") {
+                value *= 1e9;  // giga
+            } else if (unit == "m") {
+                value *= 1e-3; // milli
+            } else if (unit == "u") {
+                value *= 1e-6; // micro
+            } else if (unit == "n") {
+                value *= 1e-9; // nano
+            } else if (unit == "p") {
+                value *= 1e-12; // pico
+            } else {
+                throw CircuitError("Unknown unit '" + unit + "'");
+            }
+        }
+    } catch (const std::invalid_argument&) {
+        throw CircuitError("Invalid numeric value '" + valueStr + "'");
+    } catch (const std::out_of_range&) {
+        throw CircuitError("Value '" + valueStr + "' is out of range");
+    }
+
+    return value;
+}
 // Circuit class to hold all elements and nodes
 class Circuit {
 private:
@@ -485,31 +534,55 @@ public:
         return elementInfo;
     }
 
-    void addResistor(const std::string& name, const std::string& node1Name, const std::string& node2Name, double resistance) {
+    void addResistor(const std::string& name, const std::string& node1Name,
+                     const std::string& node2Name, const std::string& valueStr) {
         checkForDuplicateElement(name);
-        auto n1 = getOrCreateNode(node1Name);  // CHANGED: Now creates node if needed
-        auto n2 = getOrCreateNode(node2Name);  // CHANGED: Now creates node if needed
+        auto n1 = getOrCreateNode(node1Name);
+        auto n2 = getOrCreateNode(node2Name);
+
+        double resistance = parseValueWithUnit(valueStr);
+        if (resistance <= 0) {
+            throw CircuitError("Resistance must be positive");
+        }
+
         elements.push_back(std::make_shared<Resistor>(name, n1, n2, resistance));
     }
 
-    void addCapacitor(const std::string& name, const std::string& node1Name, const std::string& node2Name, double capacitance) {
+    void addCapacitor(const std::string& name, const std::string& node1Name,
+                      const std::string& node2Name, const std::string& valueStr) {
         checkForDuplicateElement(name);
-        auto n1 = getOrCreateNode(node1Name);  // CHANGED
-        auto n2 = getOrCreateNode(node2Name);  // CHANGED
+        auto n1 = getOrCreateNode(node1Name);
+        auto n2 = getOrCreateNode(node2Name);
+
+        double capacitance = parseValueWithUnit(valueStr);
+        if (capacitance <= 0) {
+            throw CircuitError("Capacitance must be positive");
+        }
+
         elements.push_back(std::make_shared<Capacitor>(name, n1, n2, capacitance));
     }
 
-    void addInductor(const std::string& name, const std::string& node1Name, const std::string& node2Name, double inductance) {
+    void addInductor(const std::string& name, const std::string& node1Name,
+                     const std::string& node2Name, const std::string& valueStr) {
         checkForDuplicateElement(name);
-        auto n1 = getOrCreateNode(node1Name);  // CHANGED
-        auto n2 = getOrCreateNode(node2Name);  // CHANGED
+        auto n1 = getOrCreateNode(node1Name);
+        auto n2 = getOrCreateNode(node2Name);
+
+        double inductance = parseValueWithUnit(valueStr);
+        if (inductance <= 0) {
+            throw CircuitError("Inductance must be positive");
+        }
+
         elements.push_back(std::make_shared<Inductor>(name, n1, n2, inductance));
     }
 
-    void addVoltageSource(const std::string& name, const std::string& node1Name, const std::string& node2Name, double voltage) {
+    void addVoltageSource(const std::string& name, const std::string& node1Name,
+                          const std::string& node2Name, const std::string& valueStr) {
         checkForDuplicateElement(name);
-        auto n1 = getOrCreateNode(node1Name);  // CHANGED
-        auto n2 = getOrCreateNode(node2Name);  // CHANGED
+        auto n1 = getOrCreateNode(node1Name);
+        auto n2 = getOrCreateNode(node2Name);
+
+        double voltage = parseValueWithUnit(valueStr);
         elements.push_back(std::make_shared<VoltageSource>(name, n1, n2, voltage));
     }
     void addGround(const std::string& nodeName) {
@@ -524,7 +597,7 @@ public:
         // Connect the node to ground with a 0V voltage source
         // This is a standard SPICE technique for grounding nodes
         std::string vsourceName = "VGND_" + nodeName;
-        addVoltageSource(vsourceName, nodeName, "GND", 0.0);
+        addVoltageSource(vsourceName, nodeName, "GND", "0.0");
     }
 
     void addDiode(const std::string& name, const std::string& node1Name,
@@ -540,10 +613,13 @@ public:
             elements.push_back(std::make_shared<Diode>(name, n1, n2, model));
         }
     }
-    void addCurrentSource(const std::string& name, const std::string& node1Name, const std::string& node2Name, double current) {
+    void addCurrentSource(const std::string& name, const std::string& node1Name,
+                          const std::string& node2Name, const std::string& valueStr) {
         checkForDuplicateElement(name);
-        auto n1 = getOrCreateNode(node1Name);  // CHANGED
-        auto n2 = getOrCreateNode(node2Name);  // CHANGED
+        auto n1 = getOrCreateNode(node1Name);
+        auto n2 = getOrCreateNode(node2Name);
+
+        double current = parseValueWithUnit(valueStr);
         elements.push_back(std::make_shared<CurrentSource>(name, n1, n2, current));
     }
 
@@ -814,4 +890,3 @@ std::vector<std::string> splitCommand(const std::string& command) {
     }
     return tokens;
 }
-

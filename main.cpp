@@ -60,16 +60,20 @@ int main() {
                         std::cout << "Error: Usage: add R <name> <node1> <node2> <value>" << std::endl;
                         continue;
                     }
-                    circuit.addResistor(tokens[2], tokens[3], tokens[4], std::stod(tokens[5]));
-                    std::cout << "Added resistor " << tokens[2] << std::endl;
+                    try {
+                        circuit.addResistor(tokens[2], tokens[3], tokens[4], tokens[5]);
+                        std::cout << "Added resistor " << tokens[2] << " = " << tokens[5] << std::endl;
+                    } catch (const CircuitError& e) {
+                        std::cout << "Error: " << e.what() << std::endl;
+                    }
                 }
                 else if (tokens[1] == "C") {
                     if (tokens.size() != 6) {
                         std::cout << "Error: Usage: add C <name> <node1> <node2> <value>" << std::endl;
                         continue;
                     }
-                    circuit.addCapacitor(tokens[2], tokens[3], tokens[4], std::stod(tokens[5]));
-                    std::cout << "Added capacitor " << tokens[2] << std::endl;
+                    circuit.addCapacitor(tokens[2], tokens[3], tokens[4], tokens[5]);
+                    std::cout << "Added capacitor " << tokens[2] << " = " << tokens[5] << std::endl;
                 }
                 else if (tokens[1] == "D") {
                     if (tokens.size() < 5) {
@@ -98,26 +102,26 @@ int main() {
                         std::cout << "Error: Usage: add L <name> <node1> <node2> <value>" << std::endl;
                         continue;
                     }
-                    circuit.addInductor(tokens[2], tokens[3], tokens[4], std::stod(tokens[5]));
-                    std::cout << "Added inductor " << tokens[2] << std::endl;
+                    circuit.addInductor(tokens[2], tokens[3], tokens[4], tokens[5]);
+                    std::cout << "Added inductor " << tokens[2] << " = " << tokens[5] << std::endl;
                 }
                 else if (tokens[1] == "V") {
                     if (tokens.size() != 6) {
                         std::cout << "Error: Usage: add V <name> <node1> <node2> <value>" << std::endl;
                         continue;
                     }
-                    circuit.addVoltageSource(tokens[2], tokens[3], tokens[4], std::stod(tokens[5]));
-                    std::cout << "Added voltage source " << tokens[2] << std::endl;
+                    circuit.addVoltageSource(tokens[2], tokens[3], tokens[4], tokens[5]);
+                    std::cout << "Added voltage source " << tokens[2] << " = " << tokens[5] << std::endl;
                 }
                 else if (tokens[1] == "I") {
                     if (tokens.size() != 6) {
                         std::cout << "Error: Usage: add I <name> <node1> <node2> <value>" << std::endl;
                         continue;
                     }
-                    circuit.addCurrentSource(tokens[2], tokens[3], tokens[4], std::stod(tokens[5]));
-                    std::cout << "Added current source " << tokens[2] << std::endl;
+                    circuit.addCurrentSource(tokens[2], tokens[3], tokens[4], tokens[5]);
+                    std::cout << "Added current source " << tokens[2] << " = " << tokens[5] << std::endl;
                 }
-                else if (tokens[0] == "add" && tokens[1] == "GND") {
+                else if (tokens[1] == "GND") {
                     if (tokens.size() != 3) {
                         std::cout << "Error: Usage: add GND <node>" << std::endl;
                         continue;
@@ -272,5 +276,4 @@ int main() {
     }
 
     return 0;
-
 }
