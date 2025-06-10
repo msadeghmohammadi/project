@@ -20,33 +20,29 @@
 #include <algorithm>
 using namespace std;
 
-// Forward declarations
 class CircuitElement;
 class Node;
 
-// Global constants
 const double EPSILON = 1e-12;
 
-// Exception class for circuit errors
-class CircuitError : public std::runtime_error {
+class CircuitError : public runtime_error {
 public:
-    explicit CircuitError(const std::string& message) : std::runtime_error(message) {}
+    explicit CircuitError(const string& message) : runtime_error(message) {}
 };
 
-// Node class to represent connection points in the circuit
 class Node {
 private:
-    std::string name;
+    string name;
     int id;
     static int nextId;
 
 public:
-    explicit Node(const std::string& nodeName) : name(nodeName), id(nextId++) {}
+    explicit Node(const string& nodeName) : name(nodeName), id(nextId++) {}
 
-    std::string getName() const { return name; }
+    string getName() const { return name; }
     int getId() const { return id; }
 
-    void rename(const std::string& newName) { name = newName; }
+    void rename(const string& newName) { name = newName; }
 
     bool operator==(const Node& other) const { return id == other.id; }
     bool operator<(const Node& other) const { return id < other.id; }
@@ -54,64 +50,61 @@ public:
 
 int Node::nextId = 0;
 
-// Base class for all circuit elements
 class CircuitElement {
 protected:
-    std::string name;
-    std::shared_ptr<Node> node1;
-    std::shared_ptr<Node> node2;
+    string name;
+    shared_ptr<Node> node1;
+    shared_ptr<Node> node2;
     double value;
 
 public:
-    CircuitElement(const std::string& elName, std::shared_ptr<Node> n1, std::shared_ptr<Node> n2, double val)
+    CircuitElement(const string& elName, shared_ptr<Node> n1, shared_ptr<Node> n2, double val)
             : name(elName), node1(n1), node2(n2), value(val) {}
 
     virtual ~CircuitElement() = default;
 
-    std::string getName() const { return name; }
-    std::shared_ptr<Node> getNode1() const { return node1; }
-    std::shared_ptr<Node> getNode2() const { return node2; }
+    string getName() const { return name; }
+    shared_ptr<Node> getNode1() const { return node1; }
+    shared_ptr<Node> getNode2() const { return node2; }
     double getValue() const { return value; }
 
-    virtual std::string getType() const = 0;
-    virtual void stampMatrix(std::vector<std::vector<double>>& G,
-                             std::vector<std::vector<double>>& B,
-                             std::vector<std::vector<double>>& C,
-                             std::vector<std::vector<double>>& D,
-                             std::vector<double>& J,
-                             std::vector<double>& E,
-                             std::map<std::shared_ptr<Node>, int>& nodeIndexMap,
+    virtual string getType() const = 0;
+    virtual void stampMatrix(vector<vector<double>>& G,
+                             vector<vector<double>>& B,
+                             vector<vector<double>>& C,
+                             vector<vector<double>>& D,
+                             vector<double>& J,
+                             vector<double>& E,
+                             map<shared_ptr<Node>, int>& nodeIndexMap,
                              int& extraVarIndex) = 0;
 
-    virtual void update(double dt) {} // For dynamic elements
+    virtual void update(double dt) {}
 };
 
-// Resistor class
 class Resistor : public CircuitElement {
 public:
-    Resistor(const std::string& name, std::shared_ptr<Node> n1, std::shared_ptr<Node> n2, double resistance)
+    Resistor(const string& name, shared_ptr<Node> n1, shared_ptr<Node> n2, double resistance)
             : CircuitElement(name, n1, n2, resistance) {
         if (resistance <= 0) {
             throw CircuitError("Resistance cannot be zero or negative");
         }
     }
 
-    std::string getType() const override { return "Resistor"; }
+    string getType() const override { return "Resistor"; }
 
-    void stampMatrix(std::vector<std::vector<double>>& G,
-                     std::vector<std::vector<double>>& B,
-                     std::vector<std::vector<double>>& C,
-                     std::vector<std::vector<double>>& D,
-                     std::vector<double>& J,
-                     std::vector<double>& E,
-                     std::map<std::shared_ptr<Node>, int>& nodeIndexMap,
+    void stampMatrix(vector<vector<double>>& G,
+                     vector<vector<double>>& B,
+                     vector<vector<double>>& C,
+                     vector<vector<double>>& D,
+                     vector<double>& J,
+                     vector<double>& E,
+                     map<shared_ptr<Node>, int>& nodeIndexMap,
                      int& extraVarIndex) override {
 
         double conductance = 1.0 / value;
         int n1 = nodeIndexMap[node1];
         int n2 = nodeIndexMap[node2];
 
-        // Stamp conductance matrix
         G[n1][n1] += conductance;
         G[n1][n2] -= conductance;
         G[n2][n1] -= conductance;
@@ -119,93 +112,108 @@ public:
     }
 };
 
-// Capacitor class
 class Capacitor : public CircuitElement {
 private:
-    double voltage = 0.0; // Initial voltage
+    double current = 0.0;
 
 public:
-    Capacitor(const std::string& name, std::shared_ptr<Node> n1, std::shared_ptr<Node> n2, double capacitance)
+    Capacitor(const string& name, shared_ptr<Node> n1, shared_ptr<Node> n2, double capacitance)
             : CircuitElement(name, n1, n2, capacitance) {
         if (capacitance <= 0) {
             throw CircuitError("Capacitance cannot be zero or negative");
         }
     }
 
-    std::string getType() const override { return "Capacitor"; }
+    string getType() const override { return "Capacitor"; }
 
-    void stampMatrix(std::vector<std::vector<double>>& G,
-                     std::vector<std::vector<double>>& B,
-                     std::vector<std::vector<double>>& C,
-                     std::vector<std::vector<double>>& D,
-                     std::vector<double>& J,
-                     std::vector<double>& E,
-                     std::map<std::shared_ptr<Node>, int>& nodeIndexMap,
+    double getCurrent() const { return current; }
+    double getVoltage() const { return prevVoltage; }
+
+    void stampMatrix(vector<vector<double>>& G,
+                     vector<vector<double>>& B,
+                     vector<vector<double>>& C,
+                     vector<vector<double>>& D,
+                     vector<double>& J,
+                     vector<double>& E,
+                     map<shared_ptr<Node>, int>& nodeIndexMap,
                      int& extraVarIndex) override {
-
-        // Using backward Euler approximation: I = C*(Vnew - Vold)/dt
-        // This is handled in the update method
     }
 
     void update(double dt) override {
-        // Update logic for transient analysis would go here
     }
+
+    void stampTransient(vector<vector<double>>& G,
+                        vector<double>& J,
+                        map<shared_ptr<Node>, int>& nodeIndexMap,
+                        double dt) {
+        if (dt <= 0) return;
+
+        int n1 = nodeIndexMap[node1];
+        int n2 = nodeIndexMap[node2];
+
+        double geq = value / dt;
+        double ieq = geq * prevVoltage;
+
+        G[n1][n1] += geq;
+        G[n1][n2] -= geq;
+        G[n2][n1] -= geq;
+        G[n2][n2] += geq;
+
+        J[n1] += ieq;
+        J[n2] -= ieq;
+    }
+
+    double prevVoltage = 0.0;
 };
 
-// Inductor class
 class Inductor : public CircuitElement {
 private:
-    double current = 0.0; // Initial current
+    double voltage = 0.0;
 
 public:
-    Inductor(const std::string& name, std::shared_ptr<Node> n1, std::shared_ptr<Node> n2, double inductance)
+    Inductor(const string& name, shared_ptr<Node> n1, shared_ptr<Node> n2, double inductance)
             : CircuitElement(name, n1, n2, inductance) {
         if (inductance <= 0) {
             throw CircuitError("Inductance cannot be zero or negative");
         }
     }
 
-    std::string getType() const override { return "Inductor"; }
+    string getType() const override { return "Inductor"; }
 
-    void stampMatrix(std::vector<std::vector<double>>& G,
-                     std::vector<std::vector<double>>& B,
-                     std::vector<std::vector<double>>& C,
-                     std::vector<std::vector<double>>& D,
-                     std::vector<double>& J,
-                     std::vector<double>& E,
-                     std::map<std::shared_ptr<Node>, int>& nodeIndexMap,
+    double getCurrent() const { return prevCurrent; }
+    double getVoltage() const { return voltage; }
+
+    void stampMatrix(vector<vector<double>>& G,
+                     vector<vector<double>>& B,
+                     vector<vector<double>>& C,
+                     vector<vector<double>>& D,
+                     vector<double>& J,
+                     vector<double>& E,
+                     map<shared_ptr<Node>, int>& nodeIndexMap,
                      int& extraVarIndex) override {
 
-        // For MNA, we need to add an extra variable for inductor current
         int n1 = nodeIndexMap[node1];
         int n2 = nodeIndexMap[node2];
         int l = extraVarIndex++;
 
-        // Stamp G matrix
-        // No direct stamp for inductor in G
-
-        // Stamp B matrix
         B[n1][l] += 1;
         B[n2][l] -= 1;
 
-        // Stamp C matrix (B transpose)
         C[l][n1] += 1;
         C[l][n2] -= 1;
 
-        // Stamp D matrix
-        D[l][l] -= value; // -L for backward Euler
+        D[l][l] -= value;
 
-        // Stamp E vector (right hand side)
-        E[l] -= value * current; // -L*I_old for backward Euler
+        E[l] -= value * prevCurrent;
     }
 
     void update(double dt) override {
-        // Update current based on new voltages
-        // This would be handled after solving the matrix
+        prevCurrent = voltage * dt / value;
     }
+
+    double prevCurrent = 0.0;
 };
 
-// Voltage source class
 class VoltageSource : public CircuitElement {
 private:
     bool isDC = true;
@@ -214,51 +222,47 @@ private:
     double offset = 0.0;
 
 public:
-    VoltageSource(const std::string& name, std::shared_ptr<Node> n1, std::shared_ptr<Node> n2, double voltage)
+    VoltageSource(const string& name, shared_ptr<Node> n1, shared_ptr<Node> n2, double voltage)
             : CircuitElement(name, n1, n2, voltage) {}
 
-    VoltageSource(const std::string& name, std::shared_ptr<Node> n1, std::shared_ptr<Node> n2,
+    VoltageSource(const string& name, shared_ptr<Node> n1, shared_ptr<Node> n2,
                   double offset, double amplitude, double frequency)
             : CircuitElement(name, n1, n2, amplitude), isDC(false),
               amplitude(amplitude), frequency(frequency), offset(offset) {}
 
-    std::string getType() const override { return isDC ? "DC Voltage Source" : "AC Voltage Source"; }
+    string getType() const override { return isDC ? "DC Voltage Source" : "AC Voltage Source"; }
 
     double getVoltage(double time = 0.0) const {
         if (isDC) {
             return value;
         } else {
-            return offset + amplitude * std::sin(2 * M_PI * frequency * time);
+            return offset + amplitude * sin(2 * M_PI * frequency * time);
         }
     }
 
-    void stampMatrix(std::vector<std::vector<double>>& G,
-                     std::vector<std::vector<double>>& B,
-                     std::vector<std::vector<double>>& C,
-                     std::vector<std::vector<double>>& D,
-                     std::vector<double>& J,
-                     std::vector<double>& E,
-                     std::map<std::shared_ptr<Node>, int>& nodeIndexMap,
+    void stampMatrix(vector<vector<double>>& G,
+                     vector<vector<double>>& B,
+                     vector<vector<double>>& C,
+                     vector<vector<double>>& D,
+                     vector<double>& J,
+                     vector<double>& E,
+                     map<shared_ptr<Node>, int>& nodeIndexMap,
                      int& extraVarIndex) override {
 
         int n1 = nodeIndexMap[node1];
         int n2 = nodeIndexMap[node2];
         int v = extraVarIndex++;
 
-        // Stamp B matrix
         B[n1][v] += 1;
         B[n2][v] -= 1;
 
-        // Stamp C matrix (B transpose)
         C[v][n1] += 1;
         C[v][n2] -= 1;
 
-        // Stamp E vector (right hand side)
-        E[v] += getVoltage(); // For DC analysis
+        E[v] += getVoltage();
     }
 };
 
-// Current source class
 class CurrentSource : public CircuitElement {
 private:
     bool isDC = true;
@@ -267,54 +271,53 @@ private:
     double offset = 0.0;
 
 public:
-    CurrentSource(const std::string& name, std::shared_ptr<Node> n1, std::shared_ptr<Node> n2, double current)
+    CurrentSource(const string& name, shared_ptr<Node> n1, shared_ptr<Node> n2, double current)
             : CircuitElement(name, n1, n2, current) {}
 
-    CurrentSource(const std::string& name, std::shared_ptr<Node> n1, std::shared_ptr<Node> n2,
+    CurrentSource(const string& name, shared_ptr<Node> n1, shared_ptr<Node> n2,
                   double offset, double amplitude, double frequency)
             : CircuitElement(name, n1, n2, amplitude), isDC(false),
               amplitude(amplitude), frequency(frequency), offset(offset) {}
 
-    std::string getType() const override { return isDC ? "DC Current Source" : "AC Current Source"; }
+    string getType() const override { return isDC ? "DC Current Source" : "AC Current Source"; }
 
     double getCurrent(double time = 0.0) const {
         if (isDC) {
             return value;
         } else {
-            return offset + amplitude * std::sin(2 * M_PI * frequency * time);
+            return offset + amplitude * sin(2 * M_PI * frequency * time);
         }
     }
 
-    void stampMatrix(std::vector<std::vector<double>>& G,
-                     std::vector<std::vector<double>>& B,
-                     std::vector<std::vector<double>>& C,
-                     std::vector<std::vector<double>>& D,
-                     std::vector<double>& J,
-                     std::vector<double>& E,
-                     std::map<std::shared_ptr<Node>, int>& nodeIndexMap,
+    void stampMatrix(vector<vector<double>>& G,
+                     vector<vector<double>>& B,
+                     vector<vector<double>>& C,
+                     vector<vector<double>>& D,
+                     vector<double>& J,
+                     vector<double>& E,
+                     map<shared_ptr<Node>, int>& nodeIndexMap,
                      int& extraVarIndex) override {
 
         int n1 = nodeIndexMap[node1];
         int n2 = nodeIndexMap[node2];
 
-        // Stamp J vector (right hand side)
-        J[n1] -= getCurrent(); // Current leaving node 1
-        J[n2] += getCurrent(); // Current entering node 2
+        J[n1] -= getCurrent();
+        J[n2] += getCurrent();
     }
 };
 
 
 class Diode : public CircuitElement {
 private:
-    std::string model;
-    double Is;     // Saturation current
-    double Vt;     // Thermal voltage
-    double n;      // Ideality factor
-    double Vz;     // Zener breakdown voltage (for Zener diodes)
+    string model;
+    double Is;
+    double Vt;
+    double n;
+    double Vz;
 
 public:
-    Diode(const std::string& name, std::shared_ptr<Node> n1, std::shared_ptr<Node> n2,
-          const std::string& model = "D", double Vz = 5.1)
+    Diode(const string& name, shared_ptr<Node> n1, shared_ptr<Node> n2,
+          const string& model = "D", double Vz = 5.1)
             : CircuitElement(name, n1, n2, 0), model(model),
               Is(1e-14), Vt(0.0258), n(1.0), Vz(Vz) {
         if (model != "D" && model != "Z") {
@@ -325,31 +328,24 @@ public:
         }
     }
 
-    std::string getType() const override {
+    string getType() const override {
         return (model == "Z") ? "Zener Diode" : "Diode";
     }
 
-    // Diode current equation
     double calculateCurrent(double Vd) const {
         if (model == "D") {
-            // Standard diode equation
             return Is * (exp(Vd / (n * Vt)) - 1);
         } else {
-            // Zener diode equation (simplified model)
             if (Vd < -Vz) {
-                // Breakdown region
                 return -Is * (exp(-(Vd + Vz) / (n * Vt)) - 1 + Vz/Vt);
             } else if (Vd > 0) {
-                // Forward bias
                 return Is * (exp(Vd / (n * Vt)) - 1);
             } else {
-                // Reverse bias, before breakdown
                 return -Is;
             }
         }
     }
 
-    // Derivative of diode current
     double calculateConductance(double Vd) const {
         if (model == "D") {
             return (Is / (n * Vt)) * exp(Vd / (n * Vt));
@@ -359,25 +355,22 @@ public:
             } else if (Vd > 0) {
                 return (Is / (n * Vt)) * exp(Vd / (n * Vt));
             } else {
-                return 1e-12; // Small conductance for numerical stability
+                return 1e-12;
             }
         }
     }
 
-    void stampMatrix(std::vector<std::vector<double>>& G,
-                     std::vector<std::vector<double>>& B,
-                     std::vector<std::vector<double>>& C,
-                     std::vector<std::vector<double>>& D,
-                     std::vector<double>& J,
-                     std::vector<double>& E,
-                     std::map<std::shared_ptr<Node>, int>& nodeIndexMap,
+    void stampMatrix(vector<vector<double>>& G,
+                     vector<vector<double>>& B,
+                     vector<vector<double>>& C,
+                     vector<vector<double>>& D,
+                     vector<double>& J,
+                     vector<double>& E,
+                     map<shared_ptr<Node>, int>& nodeIndexMap,
                      int& extraVarIndex) override {
 
-        // Initial guess for diode voltage (0.7V for forward bias)
         double Vd = 0.0;
         if (nodeIndexMap.count(node1) && nodeIndexMap.count(node2)) {
-            // In a real implementation, we'd use the current node voltages
-            // For now we'll use 0.7V as initial guess
             Vd = 0.7;
         }
 
@@ -387,48 +380,43 @@ public:
         int n1 = nodeIndexMap[node1];
         int n2 = nodeIndexMap[node2];
 
-        // Stamp the conductance matrix
         G[n1][n1] += g;
         G[n1][n2] -= g;
         G[n2][n1] -= g;
         G[n2][n2] += g;
 
-        // Stamp the current vector
         J[n1] -= (I - g * Vd);
         J[n2] += (I - g * Vd);
     }
 };
 
-// Ground node (special case)
 class Ground : public Node {
 public:
     Ground() : Node("GND") {}
 };
 
-// Circuit class to hold all elements and nodes
 class Circuit {
 private:
-    std::map<std::string, std::shared_ptr<Node>> nodes;
-    std::shared_ptr<Ground> ground;
+    map<string, shared_ptr<Node>> nodes;
+    shared_ptr<Ground> ground;
 
-    // Helper methods
     void ensureGroundExists() {
         if (!ground) {
-            ground = std::make_shared<Ground>();
+            ground = make_shared<Ground>();
             nodes["GND"] = ground;
         }
     }
 
-    void checkForDuplicateElement(const std::string& name) {
+    void checkForDuplicateElement(const string& name) {
         for (const auto& element : elements) {
             if (element->getName() == name) {
                 throw CircuitError("Element " + name + " already exists in the circuit");
             }
         }
     }
-    std::shared_ptr<Node> getOrCreateNode(const std::string& name) {
+    shared_ptr<Node> getOrCreateNode(const string& name) {
         if (nodes.find(name) == nodes.end()) {
-            nodes[name] = std::make_shared<Node>(name);
+            nodes[name] = make_shared<Node>(name);
         }
         return nodes[name];
     }
@@ -437,16 +425,16 @@ public:
         ensureGroundExists();
     }
 
-    std::shared_ptr<Node> addNode(const std::string& name) {
+    shared_ptr<Node> addNode(const string& name) {
         if (nodes.find(name) != nodes.end()) {
             throw CircuitError("Node " + name + " already exists");
         }
-        auto newNode = std::make_shared<Node>(name);
+        auto newNode = make_shared<Node>(name);
         nodes[name] = newNode;
         return newNode;
     }
 
-    void renameNode(const std::string& oldName, const std::string& newName) {
+    void renameNode(const string& oldName, const string& newName) {
         if (nodes.find(oldName) == nodes.end()) {
             throw CircuitError("Node " + oldName + " does not exist");
         }
@@ -460,60 +448,60 @@ public:
         nodes[newName] = node;
     }
 
-    std::shared_ptr<Node> getNode(const std::string& name) {
+    shared_ptr<Node> getNode(const string& name) {
         if (nodes.find(name) == nodes.end()) {
             throw CircuitError("Node " + name + " not found");
         }
         return nodes[name];
     }
 
-    std::vector<std::string> listNodes() const {
-        std::vector<std::string> nodeNames;
+    vector<string> listNodes() const {
+        vector<string> nodeNames;
         for (const auto& pair : nodes) {
             nodeNames.push_back(pair.first);
         }
         return nodeNames;
     }
 
-    std::vector<std::string> listElements(const std::string& type = "") const {
-        std::vector<std::string> elementInfo;
+    vector<string> listElements(const string& type = "") const {
+        vector<string> elementInfo;
         for (const auto& element : elements) {
-            if (type.empty() || element->getType().find(type) != std::string::npos) {
+            if (type.empty() || element->getType().find(type) != string::npos) {
                 elementInfo.push_back(element->getName() + ": " + element->getType());
             }
         }
         return elementInfo;
     }
 
-    void addResistor(const std::string& name, const std::string& node1Name, const std::string& node2Name, double resistance) {
+    void addResistor(const string& name, const string& node1Name, const string& node2Name, double resistance) {
         checkForDuplicateElement(name);
-        auto n1 = getOrCreateNode(node1Name);  // CHANGED: Now creates node if needed
-        auto n2 = getOrCreateNode(node2Name);  // CHANGED: Now creates node if needed
-        elements.push_back(std::make_shared<Resistor>(name, n1, n2, resistance));
+        auto n1 = getOrCreateNode(node1Name);
+        auto n2 = getOrCreateNode(node2Name);
+        elements.push_back(make_shared<Resistor>(name, n1, n2, resistance));
     }
 
-    void addCapacitor(const std::string& name, const std::string& node1Name, const std::string& node2Name, double capacitance) {
+    void addCapacitor(const string& name, const string& node1Name, const string& node2Name, double capacitance) {
         checkForDuplicateElement(name);
-        auto n1 = getOrCreateNode(node1Name);  // CHANGED
-        auto n2 = getOrCreateNode(node2Name);  // CHANGED
-        elements.push_back(std::make_shared<Capacitor>(name, n1, n2, capacitance));
+        auto n1 = getOrCreateNode(node1Name);
+        auto n2 = getOrCreateNode(node2Name);
+        elements.push_back(make_shared<Capacitor>(name, n1, n2, capacitance));
     }
 
-    void addInductor(const std::string& name, const std::string& node1Name, const std::string& node2Name, double inductance) {
+    void addInductor(const string& name, const string& node1Name, const string& node2Name, double inductance) {
         checkForDuplicateElement(name);
-        auto n1 = getOrCreateNode(node1Name);  // CHANGED
-        auto n2 = getOrCreateNode(node2Name);  // CHANGED
-        elements.push_back(std::make_shared<Inductor>(name, n1, n2, inductance));
+        auto n1 = getOrCreateNode(node1Name);
+        auto n2 = getOrCreateNode(node2Name);
+        elements.push_back(make_shared<Inductor>(name, n1, n2, inductance));
     }
 
-    void addVoltageSource(const std::string& name, const std::string& node1Name, const std::string& node2Name, double voltage) {
+    void addVoltageSource(const string& name, const string& node1Name, const string& node2Name, double voltage) {
         checkForDuplicateElement(name);
-        auto n1 = getOrCreateNode(node1Name);  // CHANGED
-        auto n2 = getOrCreateNode(node2Name);  // CHANGED
-        elements.push_back(std::make_shared<VoltageSource>(name, n1, n2, voltage));
+        auto n1 = getOrCreateNode(node1Name);
+        auto n2 = getOrCreateNode(node2Name);
+        elements.push_back(make_shared<VoltageSource>(name, n1, n2, voltage));
     }
-    void addGround(const std::string& nodeName) {
-        ensureGroundExists(); // Make sure we have a ground node
+    void addGround(const string& nodeName) {
+        ensureGroundExists();
 
         if (nodeName == "GND") {
             throw CircuitError("Cannot name a node 'GND' as it's reserved for ground");
@@ -521,52 +509,49 @@ public:
 
         auto node = getOrCreateNode(nodeName);
 
-        // Connect the node to ground with a 0V voltage source
-        // This is a standard SPICE technique for grounding nodes
-        std::string vsourceName = "VGND_" + nodeName;
+        string vsourceName = "VGND_" + nodeName;
         addVoltageSource(vsourceName, nodeName, "GND", 0.0);
     }
 
-    void addDiode(const std::string& name, const std::string& node1Name,
-                  const std::string& node2Name, const std::string& model = "D",
+    void addDiode(const string& name, const string& node1Name,
+                  const string& node2Name, const string& model = "D",
                   double Vz = 5.1) {
         checkForDuplicateElement(name);
         auto n1 = getOrCreateNode(node1Name);
         auto n2 = getOrCreateNode(node2Name);
 
         if (model == "Z") {
-            elements.push_back(std::make_shared<Diode>(name, n1, n2, model, Vz));
+            elements.push_back(make_shared<Diode>(name, n1, n2, model, Vz));
         } else {
-            elements.push_back(std::make_shared<Diode>(name, n1, n2, model));
+            elements.push_back(make_shared<Diode>(name, n1, n2, model));
         }
     }
-    void addCurrentSource(const std::string& name, const std::string& node1Name, const std::string& node2Name, double current) {
+    void addCurrentSource(const string& name, const string& node1Name, const string& node2Name, double current) {
         checkForDuplicateElement(name);
-        auto n1 = getOrCreateNode(node1Name);  // CHANGED
-        auto n2 = getOrCreateNode(node2Name);  // CHANGED
-        elements.push_back(std::make_shared<CurrentSource>(name, n1, n2, current));
+        auto n1 = getOrCreateNode(node1Name);
+        auto n2 = getOrCreateNode(node2Name);
+        elements.push_back(make_shared<CurrentSource>(name, n1, n2, current));
     }
 
-    void removeElement(const std::string& name) {
-        auto it = std::find_if(elements.begin(), elements.end(),
-                               [&name](const std::shared_ptr<CircuitElement>& el) { return el->getName() == name; });
+    void removeElement(const string& name) {
+        auto it = find_if(elements.begin(), elements.end(),
+                               [&name](const shared_ptr<CircuitElement>& el) { return el->getName() == name; });
 
         if (it == elements.end()) {
-            throw CircuitError("Element " + name + " not found");
+            throw CircuitError( "Error: Cannot delete resistor; component not found");
         }
 
         elements.erase(it);
     }
-    void removeGround(const std::string& nodeName) {
+    void removeGround(const string& nodeName) {
         if (!ground) {
             throw CircuitError("No ground connection exists in the circuit");
         }
 
-        // Find the 0V voltage source that connects this node to ground
-        std::string vsourceName = "VGND_" + nodeName;
+        string vsourceName = "VGND_" + nodeName;
 
-        auto it = std::find_if(elements.begin(), elements.end(),
-                               [&vsourceName](const std::shared_ptr<CircuitElement>& el) {
+        auto it = find_if(elements.begin(), elements.end(),
+                               [&vsourceName](const shared_ptr<CircuitElement>& el) {
                                    return el->getName() == vsourceName &&
                                           (el->getType() == "DC Voltage Source") &&
                                           el->getValue() == 0.0;
@@ -579,9 +564,9 @@ public:
         elements.erase(it);
     }
 
-    void removeResistor(const std::string& name) {
-        auto it = std::find_if(elements.begin(), elements.end(),
-                               [&name](const std::shared_ptr<CircuitElement>& el) {
+    void removeResistor(const string& name) {
+        auto it = find_if(elements.begin(), elements.end(),
+                               [&name](const shared_ptr<CircuitElement>& el) {
                                    return el->getName() == name && el->getType() == "Resistor";
                                });
 
@@ -592,9 +577,9 @@ public:
         elements.erase(it);
     }
 
-    void removeCapacitor(const std::string& name) {
-        auto it = std::find_if(elements.begin(), elements.end(),
-                               [&name](const std::shared_ptr<CircuitElement>& el) {
+    void removeCapacitor(const string& name) {
+        auto it = find_if(elements.begin(), elements.end(),
+                               [&name](const shared_ptr<CircuitElement>& el) {
                                    return el->getName() == name && el->getType() == "Capacitor";
                                });
 
@@ -605,9 +590,9 @@ public:
         elements.erase(it);
     }
 
-    void removeInductor(const std::string& name) {
-        auto it = std::find_if(elements.begin(), elements.end(),
-                               [&name](const std::shared_ptr<CircuitElement>& el) {
+    void removeInductor(const string& name) {
+        auto it = find_if(elements.begin(), elements.end(),
+                               [&name](const shared_ptr<CircuitElement>& el) {
                                    return el->getName() == name && el->getType() == "Inductor";
                                });
 
@@ -618,9 +603,9 @@ public:
         elements.erase(it);
     }
 
-    void removeVoltageSource(const std::string& name) {
-        auto it = std::find_if(elements.begin(), elements.end(),
-                               [&name](const std::shared_ptr<CircuitElement>& el) {
+    void removeVoltageSource(const string& name) {
+        auto it = find_if(elements.begin(), elements.end(),
+                               [&name](const shared_ptr<CircuitElement>& el) {
                                    return el->getName() == name &&
                                           (el->getType() == "DC Voltage Source" ||
                                            el->getType() == "AC Voltage Source");
@@ -633,9 +618,9 @@ public:
         elements.erase(it);
     }
 
-    void removeCurrentSource(const std::string& name) {
-        auto it = std::find_if(elements.begin(), elements.end(),
-                               [&name](const std::shared_ptr<CircuitElement>& el) {
+    void removeCurrentSource(const string& name) {
+        auto it = find_if(elements.begin(), elements.end(),
+                               [&name](const shared_ptr<CircuitElement>& el) {
                                    return el->getName() == name &&
                                           (el->getType() == "DC Current Source" ||
                                            el->getType() == "AC Current Source");
@@ -648,9 +633,9 @@ public:
         elements.erase(it);
     }
 
-    void removeDiode(const std::string& name) {
-        auto it = std::find_if(elements.begin(), elements.end(),
-                               [&name](const std::shared_ptr<CircuitElement>& el) {
+    void removeDiode(const string& name) {
+        auto it = find_if(elements.begin(), elements.end(),
+                               [&name](const shared_ptr<CircuitElement>& el) {
                                    return el->getName() == name && el->getType() == "Diode";
                                });
 
@@ -660,29 +645,24 @@ public:
 
         elements.erase(it);
     }
-    // Matrix solver using Gaussian elimination
-    static void solveMatrix(std::vector<std::vector<double>>& A, std::vector<double>& b) {
+    static void solveMatrix(vector<vector<double>>& A, vector<double>& b) {
         const int n = A.size();
 
-        // Forward elimination
         for (int i = 0; i < n; ++i) {
-            // Search for maximum in this column
-            double maxEl = std::abs(A[i][i]);
+            double maxEl = abs(A[i][i]);
             int maxRow = i;
             for (int k = i + 1; k < n; ++k) {
-                if (std::abs(A[k][i]) > maxEl) {
-                    maxEl = std::abs(A[k][i]);
+                if (abs(A[k][i]) > maxEl) {
+                    maxEl = abs(A[k][i]);
                     maxRow = k;
                 }
             }
 
-            // Swap maximum row with current row
             for (int k = i; k < n; ++k) {
-                std::swap(A[maxRow][k], A[i][k]);
+                swap(A[maxRow][k], A[i][k]);
             }
-            std::swap(b[maxRow], b[i]);
+            swap(b[maxRow], b[i]);
 
-            // Make all rows below this one 0 in current column
             for (int k = i + 1; k < n; ++k) {
                 double c = -A[k][i] / A[i][i];
                 for (int j = i; j < n; ++j) {
@@ -696,7 +676,6 @@ public:
             }
         }
 
-        // Back substitution
         for (int i = n - 1; i >= 0; --i) {
             b[i] /= A[i][i];
             for (int k = i - 1; k >= 0; --k) {
@@ -705,12 +684,10 @@ public:
         }
     }
 
-    // DC analysis
-    std::map<std::shared_ptr<Node>, double> analyzeDC() {
+    map<shared_ptr<Node>, double> analyzeDC() {
         ensureGroundExists();
 
-        // Create node index map (excluding ground)
-        std::map<std::shared_ptr<Node>, int> nodeIndexMap;
+        map<shared_ptr<Node>, int> nodeIndexMap;
         int nodeCount = 0;
         for (const auto& pair : nodes) {
             if (pair.first != "GND") {
@@ -718,7 +695,6 @@ public:
             }
         }
 
-        // Count extra variables needed (for voltage sources and inductors)
         int extraVars = 0;
         for (const auto& element : elements) {
             if (element->getType() == "DC Voltage Source" ||
@@ -728,26 +704,22 @@ public:
             }
         }
 
-        // Initialize MNA matrices
         int matrixSize = nodeCount + extraVars;
-        std::vector<std::vector<double>> G(nodeCount, std::vector<double>(nodeCount, 0.0));
-        std::vector<std::vector<double>> B(nodeCount, std::vector<double>(extraVars, 0.0));
-        std::vector<std::vector<double>> C(extraVars, std::vector<double>(nodeCount, 0.0));
-        std::vector<std::vector<double>> D(extraVars, std::vector<double>(extraVars, 0.0));
-        std::vector<double> J(nodeCount, 0.0);
-        std::vector<double> E(extraVars, 0.0);
+        vector<vector<double>> G(nodeCount, vector<double>(nodeCount, 0.0));
+        vector<vector<double>> B(nodeCount, vector<double>(extraVars, 0.0));
+        vector<vector<double>> C(extraVars, vector<double>(nodeCount, 0.0));
+        vector<vector<double>> D(extraVars, vector<double>(extraVars, 0.0));
+        vector<double> J(nodeCount, 0.0);
+        vector<double> E(extraVars, 0.0);
 
-        // Stamp all elements into the matrix
         int currentExtraVar = 0;
         for (const auto& element : elements) {
             element->stampMatrix(G, B, C, D, J, E, nodeIndexMap, currentExtraVar);
         }
 
-        // Combine into one big matrix for solving
-        std::vector<std::vector<double>> A(matrixSize, std::vector<double>(matrixSize, 0.0));
-        std::vector<double> b(matrixSize, 0.0);
+        vector<vector<double>> A(matrixSize, vector<double>(matrixSize, 0.0));
+        vector<double> b(matrixSize, 0.0);
 
-        // Fill G and B parts
         for (int i = 0; i < nodeCount; ++i) {
             for (int j = 0; j < nodeCount; ++j) {
                 A[i][j] = G[i][j];
@@ -758,7 +730,6 @@ public:
             b[i] = J[i];
         }
 
-        // Fill C and D parts
         for (int i = 0; i < extraVars; ++i) {
             for (int j = 0; j < nodeCount; ++j) {
                 A[nodeCount + i][j] = C[i][j];
@@ -769,11 +740,9 @@ public:
             b[nodeCount + i] = E[i];
         }
 
-        // Solve the matrix
         solveMatrix(A, b);
 
-        // Extract node voltages (ground is 0)
-        std::map<std::shared_ptr<Node>, double> nodeVoltages;
+        map<shared_ptr<Node>, double> nodeVoltages;
         nodeVoltages[ground] = 0.0;
 
         for (const auto& pair : nodeIndexMap) {
@@ -783,22 +752,108 @@ public:
         return nodeVoltages;
     }
 
-    // Transient analysis
-    std::vector<std::map<std::shared_ptr<Node>, double>> analyzeTransient(double tStep, double tStop, double tStart = 0.0) {
-        // This would implement the transient analysis using backward Euler
-        // For simplicity, we'll just return the DC solution in this base version
-        std::vector<std::map<std::shared_ptr<Node>, double>> results;
-        results.push_back(analyzeDC());
+    vector<map<shared_ptr<Node>, double>> analyzeTransient(double tStep, double tStop, double tStart = 0.0) {
+        vector<map<shared_ptr<Node>, double>> results;
+
+        auto initialSolution = analyzeDC();
+        results.push_back(initialSolution);
+
+        for (auto& element : elements) {
+            if (auto cap = dynamic_cast<Capacitor*>(element.get())) {
+                cap->prevVoltage = initialSolution[cap->getNode1()] - initialSolution[cap->getNode2()];
+            }
+            else if (auto ind = dynamic_cast<Inductor*>(element.get())) {
+                ind->prevCurrent = 0.0;
+            }
+        }
+
+        for (double t = tStart + tStep; t <= tStop; t += tStep) {
+            map<shared_ptr<Node>, int> nodeIndexMap;
+            int nodeCount = 0;
+            for (const auto& pair : nodes) {
+                if (pair.first != "GND") {
+                    nodeIndexMap[pair.second] = nodeCount++;
+                }
+            }
+
+            int extraVars = 0;
+            for (const auto& element : elements) {
+                if (element->getType() == "DC Voltage Source" ||
+                    element->getType() == "AC Voltage Source" ||
+                    element->getType() == "Inductor") {
+                    extraVars++;
+                }
+            }
+
+            vector<vector<double>> G(nodeCount, vector<double>(nodeCount, 0.0));
+            vector<vector<double>> B(nodeCount, vector<double>(extraVars, 0.0));
+            vector<vector<double>> C(extraVars, vector<double>(nodeCount, 0.0));
+            vector<vector<double>> D(extraVars, vector<double>(extraVars, 0.0));
+            vector<double> J(nodeCount, 0.0);
+            vector<double> E(extraVars, 0.0);
+
+            int currentExtraVar = 0;
+            for (auto& element : elements) {
+                element->stampMatrix(G, B, C, D, J, E, nodeIndexMap, currentExtraVar);
+
+                if (auto cap = dynamic_cast<Capacitor*>(element.get())) {
+                    cap->stampTransient(G, J, nodeIndexMap, tStep);
+                }
+            }
+
+            int matrixSize = nodeCount + extraVars;
+            vector<vector<double>> A(matrixSize, vector<double>(matrixSize, 0.0));
+            vector<double> b(matrixSize, 0.0);
+
+            for (int i = 0; i < nodeCount; i++) {
+                for (int j = 0; j < nodeCount; j++) {
+                    A[i][j] = G[i][j];
+                }
+                for (int j = 0; j < extraVars; j++) {
+                    A[i][nodeCount + j] = B[i][j];
+                }
+                b[i] = J[i];
+            }
+
+            for (int i = 0; i < extraVars; i++) {
+                for (int j = 0; j < nodeCount; j++) {
+                    A[nodeCount + i][j] = C[i][j];
+                }
+                for (int j = 0; j < extraVars; j++) {
+                    A[nodeCount + i][nodeCount + j] = D[i][j];
+                }
+                b[nodeCount + i] = E[i];
+            }
+
+            solveMatrix(A, b);
+
+            map<shared_ptr<Node>, double> solution;
+            solution[ground] = 0.0;
+            for (const auto& pair : nodeIndexMap) {
+                solution[pair.first] = b[pair.second];
+            }
+            results.push_back(solution);
+
+            for (auto& element : elements) {
+                if (auto cap = dynamic_cast<Capacitor*>(element.get())) {
+                    double v1 = solution[cap->getNode1()];
+                    double v2 = solution[cap->getNode2()];
+                    cap->prevVoltage = v1 - v2;
+                }
+                else if (auto ind = dynamic_cast<Inductor*>(element.get())) {
+                }
+                element->update(tStep);
+            }
+        }
+
         return results;
     }
-
-    std::vector<std::shared_ptr<CircuitElement>> elements;
+    vector<shared_ptr<CircuitElement>> elements;
 };
 
-// Helper functions for command parsing
-std::vector<std::string> splitCommand(const std::string& command) {
-    std::vector<std::string> tokens;
-    std::string token;
+vector<string> splitCommand(const string& command) {
+    vector<string> tokens;
+    string token;
     for (char ch : command) {
         if (isspace(ch)) {
             if (!token.empty()) {
@@ -814,4 +869,3 @@ std::vector<std::string> splitCommand(const std::string& command) {
     }
     return tokens;
 }
-
