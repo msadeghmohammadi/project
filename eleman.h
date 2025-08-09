@@ -8,7 +8,7 @@
 
 #endif //PROJECT_ELEMAN_H
 
-#ianclude <iostream>
+#include <iostream>
 #include "eleman.h"
 #include <iostream>
 #include <vector>

@@ -1,17 +1,69 @@
 #include <iostream>
 #include "eleman.h"
-#include <vector>
 #include <string>
-#include <map>
-#include <cmath>
-#include <stdexcept>
 #include <memory>
 #include <algorithm>
-#include <sstream>
-#include <string>
-
+#include <SDL2/SDL_events.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_image.h>
 using namespace std;
 
+class frame{
+private:
+    int number;
+    vector<SDL_Event>frameevent;
+public:
+    void renderframe(){
+
+    }
+
+    void destoryframe(){
+
+    }
+
+    void clearEvent(){
+
+    }
+
+    void nextEvent(){
+
+    }
+
+    void containsEvent(SDL_EventType){
+
+    }
+};
+
+class Button{
+private:
+    string name;
+    SDL_Rect rect;
+    SDL_Text text;
+    int x;
+    int y;
+    int width;
+    int heigh;
+public:
+    void renderbutton(){
+
+    }
+
+    void mouseishovering(){
+
+    }
+
+    void isclick(){
+
+    }
+
+    void mouseishucking(){
+
+    }
+
+    virtual void doAction() = 0;
+
+};
 int main() {
     Circuit circuit;
 

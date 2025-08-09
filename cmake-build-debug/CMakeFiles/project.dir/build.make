@@ -75,15 +75,15 @@ CMakeFiles/project.dir/main.cpp.obj: CMakeFiles/project.dir/flags.make
 CMakeFiles/project.dir/main.cpp.obj: C:/Users/asus/OneDrive/Documents/GitHub/project/main.cpp
 CMakeFiles/project.dir/main.cpp.obj: CMakeFiles/project.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\asus\OneDrive\Documents\GitHub\project\cmake-build-debug\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/project.dir/main.cpp.obj"
-	C:\PROGRA~1\JETBRA~1\CLION2~1.1\bin\mingw\bin\G__~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/project.dir/main.cpp.obj -MF CMakeFiles\project.dir\main.cpp.obj.d -o CMakeFiles\project.dir\main.cpp.obj -c C:\Users\asus\OneDrive\Documents\GitHub\project\main.cpp
+	C:\MinGW\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/project.dir/main.cpp.obj -MF CMakeFiles\project.dir\main.cpp.obj.d -o CMakeFiles\project.dir\main.cpp.obj -c C:\Users\asus\OneDrive\Documents\GitHub\project\main.cpp
 
 CMakeFiles/project.dir/main.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/project.dir/main.cpp.i"
-	C:\PROGRA~1\JETBRA~1\CLION2~1.1\bin\mingw\bin\G__~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E C:\Users\asus\OneDrive\Documents\GitHub\project\main.cpp > CMakeFiles\project.dir\main.cpp.i
+	C:\MinGW\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E C:\Users\asus\OneDrive\Documents\GitHub\project\main.cpp > CMakeFiles\project.dir\main.cpp.i
 
 CMakeFiles/project.dir/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/project.dir/main.cpp.s"
-	C:\PROGRA~1\JETBRA~1\CLION2~1.1\bin\mingw\bin\G__~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S C:\Users\asus\OneDrive\Documents\GitHub\project\main.cpp -o CMakeFiles\project.dir\main.cpp.s
+	C:\MinGW\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S C:\Users\asus\OneDrive\Documents\GitHub\project\main.cpp -o CMakeFiles\project.dir\main.cpp.s
 
 # Object files for target project
 project_OBJECTS = \
