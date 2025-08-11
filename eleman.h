@@ -69,17 +69,35 @@ public:
     double getValue() const { return value; }
 
     virtual string getType() const = 0;
-    virtual void stampMatrix(vector<vector<double>>& G,
-                             vector<vector<double>>& B,
-                             vector<vector<double>>& C,
-                             vector<vector<double>>& D,
-                             vector<double>& J,
-                             vector<double>& E,
-                             map<shared_ptr<Node>, int>& nodeIndexMap,
-                             int& extraVarIndex) = 0;
 
-    virtual void update(double dt) {}
+    virtual void stampMatrix(
+            vector<vector<double>>& G,
+            vector<vector<double>>& B,
+            vector<vector<double>>& C,
+            vector<vector<double>>& D,
+            vector<double>& J,
+            vector<double>& E,
+            map<shared_ptr<Node>, int>& nodeIndexMap,
+            int& extraVarIndex) = 0;
+
+    virtual void stampTransient(
+            vector<vector<double>>& G,
+            vector<vector<double>>& B,
+            vector<vector<double>>& C,
+            vector<vector<double>>& D,
+            vector<double>& J,
+            vector<double>& E,
+            const map<shared_ptr<Node>, int>& nodeIndexMap,
+            int& extraVarIndex,
+            double dt,
+            double t) = 0;
+
+    virtual void update(
+            const map<shared_ptr<Node>, double>& solution,
+            const map<shared_ptr<Node>, int>& nodeIndexMap,
+            double dt) {}
 };
+
 
 class Resistor : public CircuitElement {
 public:
@@ -110,6 +128,22 @@ public:
         G[n2][n1] -= conductance;
         G[n2][n2] += conductance;
     }
+
+    void stampTransient(vector<vector<double>>& G,
+                        vector<vector<double>>& B,
+                        vector<vector<double>>& C,
+                        vector<vector<double>>& D,
+                        vector<double>& J,
+                        vector<double>& E,
+                        const map<shared_ptr<Node>, int>& nodeIndexMap,
+                        int& extraVarIndex,
+                        double dt,
+                        double t) override {
+        stampMatrix(G, B, C, D, J, E,
+                    const_cast<map<shared_ptr<Node>, int>&>(nodeIndexMap),
+                    extraVarIndex);
+    }
+
 };
 
 class Capacitor : public CircuitElement {
@@ -117,6 +151,8 @@ private:
     double current = 0.0;
 
 public:
+    double prevVoltage = 0.0;
+
     Capacitor(const string& name, shared_ptr<Node> n1, shared_ptr<Node> n2, double capacitance)
             : CircuitElement(name, n1, n2, capacitance) {
         if (capacitance <= 0) {
@@ -139,38 +175,59 @@ public:
                      int& extraVarIndex) override {
     }
 
-    void update(double dt) override {
-    }
-
     void stampTransient(vector<vector<double>>& G,
+                        vector<vector<double>>& B,
+                        vector<vector<double>>& C,
+                        vector<vector<double>>& D,
                         vector<double>& J,
-                        map<shared_ptr<Node>, int>& nodeIndexMap,
-                        double dt) {
+                        vector<double>& E,
+                        const map<shared_ptr<Node>, int>& nodeIndexMap,
+                        int& extraVarIndex,
+                        double dt,
+                        double /*t*/) override {
         if (dt <= 0) return;
 
-        int n1 = nodeIndexMap[node1];
-        int n2 = nodeIndexMap[node2];
+        int n1 = nodeIndexMap.count(node1) ? nodeIndexMap.at(node1) : -1;
+        int n2 = nodeIndexMap.count(node2) ? nodeIndexMap.at(node2) : -1;
 
         double geq = value / dt;
         double ieq = geq * prevVoltage;
 
-        G[n1][n1] += geq;
-        G[n1][n2] -= geq;
-        G[n2][n1] -= geq;
-        G[n2][n2] += geq;
-
-        J[n1] += ieq;
-        J[n2] -= ieq;
+        if (n1 >= 0) {
+            G[n1][n1] += geq;
+            if (n2 >= 0) {
+                G[n1][n2] -= geq;
+                G[n2][n1] -= geq;
+                G[n2][n2] += geq;
+            }
+            J[n1] += ieq;
+            if (n2 >= 0) J[n2] -= ieq;
+        }
+        else if (n2 >= 0) {
+            G[n2][n2] += geq;
+            J[n2] -= ieq;
+        }
     }
 
-    double prevVoltage = 0.0;
+    void update(const map<shared_ptr<Node>, double>& solution,
+                const map<shared_ptr<Node>, int>& /*nodeIndexMap*/,
+                double dt) override {
+        double v1 = solution.count(node1) ? solution.at(node1) : 0.0;
+        double v2 = solution.count(node2) ? solution.at(node2) : 0.0;
+
+        double newVoltage = v1 - v2;
+
+        current = value * (newVoltage - prevVoltage) / dt;
+        prevVoltage = newVoltage;
+    }
 };
 
-class Inductor : public CircuitElement {
-private:
-    double voltage = 0.0;
 
+class Inductor : public CircuitElement {
 public:
+    double voltage = 0.0;
+    double prevCurrent = 0.0;
+
     Inductor(const string& name, shared_ptr<Node> n1, shared_ptr<Node> n2, double inductance)
             : CircuitElement(name, n1, n2, inductance) {
         if (inductance <= 0) {
@@ -179,7 +236,6 @@ public:
     }
 
     string getType() const override { return "Inductor"; }
-
     double getCurrent() const { return prevCurrent; }
     double getVoltage() const { return voltage; }
 
@@ -191,28 +247,55 @@ public:
                      vector<double>& E,
                      map<shared_ptr<Node>, int>& nodeIndexMap,
                      int& extraVarIndex) override {
-
-        int n1 = nodeIndexMap[node1];
-        int n2 = nodeIndexMap[node2];
+        int n1 = nodeIndexMap.count(node1) ? nodeIndexMap.at(node1) : -1;
+        int n2 = nodeIndexMap.count(node2) ? nodeIndexMap.at(node2) : -1;
         int l = extraVarIndex++;
 
-        B[n1][l] += 1;
-        B[n2][l] -= 1;
+        if (n1 >= 0) { B[n1][l] += 1; C[l][n1] += 1; }
+        if (n2 >= 0) { B[n2][l] -= 1; C[l][n2] -= 1; }
 
-        C[l][n1] += 1;
-        C[l][n2] -= 1;
-
-        D[l][l] -= value;
-
-        E[l] -= value * prevCurrent;
+        D[l][l] = 0.0;
+        E[l] = 0.0;
     }
 
-    void update(double dt) override {
-        prevCurrent = voltage * dt / value;
+    void stampTransient(vector<vector<double>>& G,
+                        vector<vector<double>>& B,
+                        vector<vector<double>>& C,
+                        vector<vector<double>>& D,
+                        vector<double>& J,
+                        vector<double>& E,
+                        const map<shared_ptr<Node>, int>& nodeIndexMap,
+                        int& extraVarIndex,
+                        double dt,
+                        double ) override {
+        int n1 = nodeIndexMap.count(node1) ? nodeIndexMap.at(node1) : -1;
+        int n2 = nodeIndexMap.count(node2) ? nodeIndexMap.at(node2) : -1;
+        int k  = extraVarIndex++;
+
+        if (n1 >= 0) { B[n1][k] += 1; C[k][n1] += 1; }
+        if (n2 >= 0) { B[n2][k] -= 1; C[k][n2] -= 1; }
+
+        double Req = value / dt;
+        D[k][k] += Req;
+        E[k] += Req * prevCurrent;
     }
 
-    double prevCurrent = 0.0;
+    void update(const map<shared_ptr<Node>, double>& solution,
+                const map<shared_ptr<Node>, int>& nodeIndexMap,
+                double ) override {
+        double v1 = solution.count(node1) ? solution.at(node1) : 0.0;
+        double v2 = solution.count(node2) ? solution.at(node2) : 0.0;
+        voltage = v1 - v2;
+
+        int currentVarIndex = static_cast<int>(nodeIndexMap.size());
+        if (solution.count(nullptr) == 0 && currentVarIndex < static_cast<int>(solution.size())) {
+            auto it = solution.begin();
+            std::advance(it, currentVarIndex);
+            prevCurrent = it->second;
+        }
+    }
 };
+
 
 class VoltageSource : public CircuitElement {
 private:
@@ -261,6 +344,32 @@ public:
 
         E[v] += getVoltage();
     }
+
+    void stampTransient(vector<vector<double>>& G,
+                        vector<vector<double>>& B,
+                        vector<vector<double>>& C,
+                        vector<vector<double>>& D,
+                        vector<double>& J,
+                        vector<double>& E,
+                        const map<shared_ptr<Node>, int>& nodeIndexMap,
+                        int& extraVarIndex,
+                        double dt,
+                        double t) override {
+
+        int n1 = nodeIndexMap.at(node1);
+        int n2 = nodeIndexMap.at(node2);
+        int v = extraVarIndex++;
+
+        B[n1][v] += 1;
+        B[n2][v] -= 1;
+
+        C[v][n1] += 1;
+        C[v][n2] -= 1;
+
+        E[v] += getVoltage(t);
+    }
+
+
 };
 
 class CurrentSource : public CircuitElement {
@@ -304,6 +413,25 @@ public:
         J[n1] -= getCurrent();
         J[n2] += getCurrent();
     }
+
+    void stampTransient(vector<vector<double>>& G,
+                        vector<vector<double>>& B,
+                        vector<vector<double>>& C,
+                        vector<vector<double>>& D,
+                        vector<double>& J,
+                        vector<double>& E,
+                        const map<shared_ptr<Node>, int>& nodeIndexMap,
+                        int& extraVarIndex,
+                        double dt,
+                        double t) override {
+
+        int n1 = nodeIndexMap.at(node1);
+        int n2 = nodeIndexMap.at(node2);
+
+        J[n1] -= getCurrent(t);
+        J[n2] += getCurrent(t);
+    }
+
 };
 
 
@@ -314,12 +442,14 @@ private:
     double Vt;
     double n;
     double Vz;
+    double Vprev;
 
 public:
     Diode(const string& name, shared_ptr<Node> n1, shared_ptr<Node> n2,
           const string& model = "D", double Vz = 5.1)
-            : CircuitElement(name, n1, n2, 0), model(model),
-              Is(1e-14), Vt(0.0258), n(1.0), Vz(Vz) {
+            : CircuitElement(name, n1, n2, 0),
+              model(model), Is(1e-14), Vt(0.0258), n(1.0), Vz(Vz), Vprev(0.7)
+    {
         if (model != "D" && model != "Z") {
             throw CircuitError("Diode model must be either 'D' (standard) or 'Z' (Zener)");
         }
@@ -337,7 +467,7 @@ public:
             return Is * (exp(Vd / (n * Vt)) - 1);
         } else {
             if (Vd < -Vz) {
-                return -Is * (exp(-(Vd + Vz) / (n * Vt)) - 1 + Vz/Vt);
+                return -Is * (exp(-(Vd + Vz) / (n * Vt)) - 1);
             } else if (Vd > 0) {
                 return Is * (exp(Vd / (n * Vt)) - 1);
             } else {
@@ -369,26 +499,59 @@ public:
                      map<shared_ptr<Node>, int>& nodeIndexMap,
                      int& extraVarIndex) override {
 
-        double Vd = 0.0;
-        if (nodeIndexMap.count(node1) && nodeIndexMap.count(node2)) {
-            Vd = 0.7;
-        }
-
-        double I = calculateCurrent(Vd);
-        double g = calculateConductance(Vd);
-
         int n1 = nodeIndexMap[node1];
         int n2 = nodeIndexMap[node2];
+
+        double g = calculateConductance(Vprev);
+        double I = calculateCurrent(Vprev);
+        double Ieq = I - g * Vprev;
 
         G[n1][n1] += g;
         G[n1][n2] -= g;
         G[n2][n1] -= g;
         G[n2][n2] += g;
 
-        J[n1] -= (I - g * Vd);
-        J[n2] += (I - g * Vd);
+        J[n1] -= Ieq;
+        J[n2] += Ieq;
     }
+
+    void stampTransient(vector<vector<double>>& G,
+                        vector<vector<double>>& B,
+                        vector<vector<double>>& C,
+                        vector<vector<double>>& D,
+                        vector<double>& J,
+                        vector<double>& E,
+                        const map<shared_ptr<Node>, int>& nodeIndexMap,
+                        int& extraVarIndex,
+                        double dt,
+                        double t) override {
+
+        int n1 = nodeIndexMap.at(node1);
+        int n2 = nodeIndexMap.at(node2);
+
+        double g = calculateConductance(Vprev);
+        double I = calculateCurrent(Vprev);
+        double Ieq = I - g * Vprev;
+
+        G[n1][n1] += g;
+        G[n1][n2] -= g;
+        G[n2][n1] -= g;
+        G[n2][n2] += g;
+
+        J[n1] -= Ieq;
+        J[n2] += Ieq;
+    }
+
+    void update(const map<shared_ptr<Node>, double>& solution,
+                const map<shared_ptr<Node>, int>& nodeIndexMap,
+                double ) override {
+        double v1 = (nodeIndexMap.count(node1) ? solution.at(nodeIndexMap.find(node1)->first) : 0.0);
+        double v2 = (nodeIndexMap.count(node2) ? solution.at(nodeIndexMap.find(node2)->first) : 0.0);
+        Vprev = v1 - v2;
+    }
+
 };
+
 
 class Ground : public Node {
 public:
@@ -664,6 +827,11 @@ public:
             swap(b[maxRow], b[i]);
 
             for (int k = i + 1; k < n; ++k) {
+
+                if (fabs(A[i][i]) < EPSILON) {
+                    throw CircuitError("Singular matrix in solver (division by zero)");
+                }
+
                 double c = -A[k][i] / A[i][i];
                 for (int j = i; j < n; ++j) {
                     if (i == j) {
@@ -677,6 +845,10 @@ public:
         }
 
         for (int i = n - 1; i >= 0; --i) {
+            if (fabs(A[i][i]) < EPSILON) {
+                throw CircuitError("Singular matrix in solver (division by zero)");
+            }
+
             b[i] /= A[i][i];
             for (int k = i - 1; k >= 0; --k) {
                 b[k] -= A[k][i] * b[i];
@@ -760,92 +932,121 @@ public:
 
         for (auto& element : elements) {
             if (auto cap = dynamic_cast<Capacitor*>(element.get())) {
-                cap->prevVoltage = initialSolution[cap->getNode1()] - initialSolution[cap->getNode2()];
+                double v1 = initialSolution.count(cap->getNode1()) ? initialSolution.at(cap->getNode1()) : 0.0;
+                double v2 = initialSolution.count(cap->getNode2()) ? initialSolution.at(cap->getNode2()) : 0.0;
+                cap->prevVoltage = v1 - v2;
             }
             else if (auto ind = dynamic_cast<Inductor*>(element.get())) {
                 ind->prevCurrent = 0.0;
             }
         }
 
+        vector<double> currSolution;
+
         for (double t = tStart + tStep; t <= tStop; t += tStep) {
+
             map<shared_ptr<Node>, int> nodeIndexMap;
-            int nodeCount = 0;
+            int nodeCount = 0, extraVars = 0;
             for (const auto& pair : nodes) {
-                if (pair.first != "GND") {
+                if (pair.first != "GND")
                     nodeIndexMap[pair.second] = nodeCount++;
-                }
             }
-
-            int extraVars = 0;
             for (const auto& element : elements) {
-                if (element->getType() == "DC Voltage Source" ||
-                    element->getType() == "AC Voltage Source" ||
-                    element->getType() == "Inductor") {
+                if (element->getType().find("Voltage Source") != string::npos ||
+                    element->getType() == "Inductor")
                     extraVars++;
+            }
+
+            vector<double> prevSolution;
+            if (t == tStart + tStep) {
+                prevSolution.assign(nodeCount + extraVars, 0.0);
+            } else {
+                prevSolution = currSolution;
+            }
+            currSolution.assign(nodeCount + extraVars, 0.0);
+
+            const int maxIter = 50;
+            const double tol = 1e-6;
+
+            for (int iter = 0; iter < maxIter; iter++) {
+
+                vector<vector<double>> G(nodeCount, vector<double>(nodeCount, 0.0));
+                vector<vector<double>> B(nodeCount, vector<double>(extraVars, 0.0));
+                vector<vector<double>> C(extraVars, vector<double>(nodeCount, 0.0));
+                vector<vector<double>> D(extraVars, vector<double>(extraVars, 0.0));
+                vector<double> J(nodeCount, 0.0);
+                vector<double> E(extraVars, 0.0);
+
+                int currentExtraVar = 0;
+
+                for (auto& element : elements) {
+                    if (auto vs = dynamic_cast<VoltageSource*>(element.get())) {
+                        vs->stampTransient(G, B, C, D, J, E, nodeIndexMap, currentExtraVar, tStep, t);
+                        E[currentExtraVar - 1] = vs->getVoltage(t);
+                    }
+                    else if (auto cs = dynamic_cast<CurrentSource*>(element.get())) {
+                        cs->stampTransient(G, B, C, D, J, E, nodeIndexMap, currentExtraVar, tStep, t);
+                        double iCurr = cs->getCurrent(t);
+                        int n1 = nodeIndexMap.count(cs->getNode1()) ? nodeIndexMap.at(cs->getNode1()) : -1;
+                        int n2 = nodeIndexMap.count(cs->getNode2()) ? nodeIndexMap.at(cs->getNode2()) : -1;
+                        if (n1 >= 0) J[n1] -= iCurr;
+                        if (n2 >= 0) J[n2] += iCurr;
+                    }
+                    else {
+                        element->stampTransient(G, B, C, D, J, E, nodeIndexMap, currentExtraVar, tStep, t);
+                    }
+                }
+
+                int matrixSize = nodeCount + extraVars;
+                vector<vector<double>> A(matrixSize, vector<double>(matrixSize, 0.0));
+                vector<double> b(matrixSize, 0.0);
+
+                for (int i = 0; i < nodeCount; i++) {
+                    for (int j = 0; j < nodeCount; j++) A[i][j] = G[i][j];
+                    for (int j = 0; j < extraVars; j++) A[i][nodeCount + j] = B[i][j];
+                    b[i] = J[i];
+                }
+                for (int i = 0; i < extraVars; i++) {
+                    for (int j = 0; j < nodeCount; j++) A[nodeCount + i][j] = C[i][j];
+                    for (int j = 0; j < extraVars; j++) A[nodeCount + i][nodeCount + j] = D[i][j];
+                    b[nodeCount + i] = E[i];
+                }
+
+                solveMatrix(A, b);
+                currSolution = b;
+
+                double maxDiff = 0.0;
+                for (int i = 0; i < matrixSize; i++)
+                    maxDiff = max(maxDiff, fabs(currSolution[i] - prevSolution[i]));
+
+                if (maxDiff < tol) break;
+
+                prevSolution = currSolution;
+
+                map<shared_ptr<Node>, double> tmpSolution;
+                tmpSolution[ground] = 0.0;
+                for (const auto& pair : nodeIndexMap)
+                    tmpSolution[pair.first] = currSolution[pair.second];
+
+                for (auto& element : elements) {
+                    if (element->getType().find("Diode") != string::npos) {
+                        element->update(tmpSolution, nodeIndexMap, tStep);
+                    }
                 }
             }
 
-            vector<vector<double>> G(nodeCount, vector<double>(nodeCount, 0.0));
-            vector<vector<double>> B(nodeCount, vector<double>(extraVars, 0.0));
-            vector<vector<double>> C(extraVars, vector<double>(nodeCount, 0.0));
-            vector<vector<double>> D(extraVars, vector<double>(extraVars, 0.0));
-            vector<double> J(nodeCount, 0.0);
-            vector<double> E(extraVars, 0.0);
+            map<shared_ptr<Node>, double> finalSolution;
+            finalSolution[ground] = 0.0;
+            for (const auto& pair : nodeIndexMap)
+                finalSolution[pair.first] = currSolution[pair.second];
+            results.push_back(finalSolution);
 
-            int currentExtraVar = 0;
             for (auto& element : elements) {
-                element->stampMatrix(G, B, C, D, J, E, nodeIndexMap, currentExtraVar);
-
-                if (auto cap = dynamic_cast<Capacitor*>(element.get())) {
-                    cap->stampTransient(G, J, nodeIndexMap, tStep);
+                if (element->getType() == "Capacitor" || element->getType() == "Inductor") {
+                    element->update(finalSolution, nodeIndexMap, tStep);
                 }
-            }
-
-            int matrixSize = nodeCount + extraVars;
-            vector<vector<double>> A(matrixSize, vector<double>(matrixSize, 0.0));
-            vector<double> b(matrixSize, 0.0);
-
-            for (int i = 0; i < nodeCount; i++) {
-                for (int j = 0; j < nodeCount; j++) {
-                    A[i][j] = G[i][j];
-                }
-                for (int j = 0; j < extraVars; j++) {
-                    A[i][nodeCount + j] = B[i][j];
-                }
-                b[i] = J[i];
-            }
-
-            for (int i = 0; i < extraVars; i++) {
-                for (int j = 0; j < nodeCount; j++) {
-                    A[nodeCount + i][j] = C[i][j];
-                }
-                for (int j = 0; j < extraVars; j++) {
-                    A[nodeCount + i][nodeCount + j] = D[i][j];
-                }
-                b[nodeCount + i] = E[i];
-            }
-
-            solveMatrix(A, b);
-
-            map<shared_ptr<Node>, double> solution;
-            solution[ground] = 0.0;
-            for (const auto& pair : nodeIndexMap) {
-                solution[pair.first] = b[pair.second];
-            }
-            results.push_back(solution);
-
-            for (auto& element : elements) {
-                if (auto cap = dynamic_cast<Capacitor*>(element.get())) {
-                    double v1 = solution[cap->getNode1()];
-                    double v2 = solution[cap->getNode2()];
-                    cap->prevVoltage = v1 - v2;
-                }
-                else if (auto ind = dynamic_cast<Inductor*>(element.get())) {
-                }
-                element->update(tStep);
             }
         }
-
         return results;
     }
     vector<shared_ptr<CircuitElement>> elements;
