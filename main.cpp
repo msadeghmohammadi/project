@@ -17,7 +17,7 @@ private:
     vector<SDL_Event>frameevent;
     SDL_Renderer* renderer;
 public:
-    const std::vector<SDL_Event>& getEvents() const { return frameevent; }
+    const vector<SDL_Event>& getEvents() const { return frameevent; }
 
     Frame(SDL_Renderer* renderer) : number(0), renderer(renderer) {}
 
@@ -246,8 +246,8 @@ int main(int argc, char* argv[]) {
     };
     TestButton btn(renderer, "signal", 0, 0, 150, 50, font);
 
-    double tStart   = 0.0;     // زمان شروع شبیه‌سازی
-    double tStop    = 5e-3;    // زمان پایان شبیه‌سازی (اینجا 5 میلی‌ثانیه)
+    double tStart   = 0.0;
+    double tStop    = 5e-3;
     double tStep    = 1e-6;
 
     SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
