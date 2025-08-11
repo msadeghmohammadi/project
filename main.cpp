@@ -1,27 +1,27 @@
 #include <iostream>
 #include "eleman.h"
 #include <string>
-#include <memory>
-#include <algorithm>
+#include <vector>
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
 #include <fstream>
 
 using namespace std;
 
-class Frame{
+class Frame {
 private:
     int number;
-    vector<SDL_Event>frameevent;
+    vector<SDL_Event> frameevent;
     SDL_Renderer* renderer;
 public:
     const std::vector<SDL_Event>& getEvents() const { return frameevent; }
 
     Frame(SDL_Renderer* renderer) : number(0), renderer(renderer) {}
 
-    void renderframe(){
+    void renderframe() {
         SDL_RenderPresent(renderer);
     }
 
@@ -30,17 +30,15 @@ public:
             SDL_DestroyRenderer(renderer);
             renderer = nullptr;
         }
-
         frameevent.clear();
     }
 
-    void clearEvent(){
+    void clearEvent() {
         frameevent.clear();
     }
 
-    bool nextEvent(){
+    bool nextEvent() {
         clearEvent();
-
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             frameevent.push_back(e);
@@ -48,7 +46,7 @@ public:
         return true;
     }
 
-    bool containsEvent(SDL_EventType type){
+    bool containsEvent(SDL_EventType type) {
         for (const auto& e : frameevent) {
             if (e.type == type) {
                 return true;
@@ -68,7 +66,6 @@ public:
     ~Frame() {
         destroyFrame();
     }
-
 };
 
 class Button {
@@ -82,17 +79,16 @@ public:
     Button(SDL_Renderer* ren, string name, int x, int y, int w, int h, TTF_Font* font)
             : renderer(ren), name(name), textTexture(nullptr) {
         rect = { x, y, w, h };
-
-        SDL_Color white = {255, 255, 255, 255};
+        SDL_Color white = { 255, 255, 255, 255 };
         SDL_Surface* surface = TTF_RenderText_Blended(font, name.c_str(), white);
-        if(surface) {
+        if (surface) {
             textTexture = SDL_CreateTextureFromSurface(renderer, surface);
             SDL_FreeSurface(surface);
         }
     }
 
-    ~Button() {
-        if(textTexture) {
+    virtual ~Button() {
+        if (textTexture) {
             SDL_DestroyTexture(textTexture);
         }
     }
@@ -101,7 +97,7 @@ public:
         SDL_SetRenderDrawColor(renderer, 100, 100, 200, 255);
         SDL_RenderFillRect(renderer, &rect);
 
-        if(textTexture) {
+        if (textTexture) {
             int tw, th;
             SDL_QueryTexture(textTexture, nullptr, nullptr, &tw, &th);
             SDL_Rect textRect = {
@@ -133,9 +129,10 @@ public:
         return false;
     }
 
-    string getName(){
+    string getName() {
         return name;
     }
+
     virtual void doAction() = 0;
 };
 
@@ -192,10 +189,31 @@ public:
     }
 };
 
+class MusicToggleButton : public Button {
+private:
+    bool isPlaying;
+    Mix_Music* music;
+public:
+    MusicToggleButton(SDL_Renderer* ren, const string& n, int x, int y, int w, int h, TTF_Font* font, Mix_Music* mus)
+            : Button(ren, n, x, y, w, h, font), isPlaying(true), music(mus) {}
+
+    void doAction() override {
+        if (isPlaying) {
+            Mix_PauseMusic();
+            isPlaying = false;
+            cout << "Music Paused\n";
+        }
+        else {
+            Mix_ResumeMusic();
+            isPlaying = true;
+            cout << "Music Resumed\n";
+        }
+    }
+};
+
 int main(int argc, char* argv[]) {
     Circuit circuit;
-
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
         std::cerr << "SDL Init Error: " << SDL_GetError() << "";
         return -1;
     }
@@ -204,6 +222,20 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return -1;
     }
+    if (IMG_Init(IMG_INIT_PNG) == 0) {
+        std::cerr << "IMG Init Error: " << IMG_GetError() << "";
+        TTF_Quit();
+        SDL_Quit();
+        return -1;
+    }
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        std::cerr << "SDL_mixer Init Error: " << Mix_GetError() << "";
+        IMG_Quit();
+        TTF_Quit();
+        SDL_Quit();
+        return -1;
+    }
+
     SDL_DisplayMode dm;
     SDL_GetCurrentDisplayMode(0, &dm);
 
@@ -216,24 +248,45 @@ int main(int argc, char* argv[]) {
 
     if (!window) {
         std::cerr << "CreateWindow Error: " << SDL_GetError() << "";
+        Mix_CloseAudio();
+        IMG_Quit();
         TTF_Quit();
         SDL_Quit();
         return -1;
+    }
+
+    SDL_Surface* iconSurface = IMG_Load("background.png");
+    if (iconSurface) {
+        SDL_SetWindowIcon(window, iconSurface);
+        SDL_FreeSurface(iconSurface);
+    }
+    else {
+        std::cerr << "Icon Load Error: " << IMG_GetError() << "\n";
     }
 
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) {
         std::cerr << "CreateRenderer Error: " << SDL_GetError() << "";
         SDL_DestroyWindow(window);
+        Mix_CloseAudio();
+        IMG_Quit();
         TTF_Quit();
         SDL_Quit();
         return -1;
     }
 
     Frame frame(renderer);
-    TTF_Font* font = TTF_OpenFont("ITCEDSCR.TTF", 16);
+    TTF_Font* font = TTF_OpenFont(R"(ITCBLKAD.ttf)", 16);
     if (!font) {
         std::cerr << "Font Error: " << TTF_GetError() << "";
+    }
+
+    Mix_Music* bgMusic = Mix_LoadMUS("downwithisrael.mp3");
+    if (!bgMusic) {
+        std::cerr << "Failed to load music: " << Mix_GetError() << "\n";
+    }
+    else {
+        Mix_PlayMusic(bgMusic, -1);
     }
 
     class TestButton : public Button {
@@ -241,20 +294,17 @@ int main(int argc, char* argv[]) {
         TestButton(SDL_Renderer* r, const string& n, int x, int y, int w, int h, TTF_Font* f)
                 : Button(r, n, x, y, w, h, f) {}
         void doAction() override {
-            std::cout << "Button Clicked: " << getName() << "";
+            std::cout << "Button Clicked: " << getName() << "\n";
         }
     };
-    TestButton btn(renderer, "signal", 0, 0, 150, 50, font);
+    TestButton btn(renderer, "signal", 100, 100, 150, 50, font);
 
-    double tStart   = 0.0;     // زمان شروع شبیه‌سازی
-    double tStop    = 5e-3;    // زمان پایان شبیه‌سازی (اینجا 5 میلی‌ثانیه)
-    double tStep    = 1e-6;
+    MusicToggleButton musicBtn(renderer, "Toggle Music", 100, 200, 200, 50, font, bgMusic);
 
     SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 
     bool running = true;
     bool f11Pressed = false;
-    string inputBuffer;
 
     while (running) {
         running = frame.nextEvent();
@@ -270,38 +320,42 @@ int main(int argc, char* argv[]) {
 
             if (e.key.keysym.sym == SDLK_F11 && !f11Pressed) {
                 f11Pressed = true;
-
                 Uint32 flags = SDL_GetWindowFlags(window);
                 if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
                     SDL_SetWindowFullscreen(window, 0);
                     SDL_SetWindowBordered(window, SDL_TRUE);
                     SDL_SetWindowSize(window, 1280, 720);
                     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-                } else {
+                }
+                else {
                     SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
                 }
             }
 
-            if (e.type == SDL_KEYUP) {
-                if (e.key.keysym.sym == SDLK_F11) {
-                    f11Pressed = false;
-                }
+            if (e.type == SDL_KEYUP && e.key.keysym.sym == SDLK_F11) {
+                f11Pressed = false;
             }
 
             if (btn.isClick(e)) {
                 btn.doAction();
             }
+            if (musicBtn.isClick(e)) {
+                musicBtn.doAction();
+            }
         }
-
         SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
         SDL_RenderClear(renderer);
         btn.renderButton();
+        musicBtn.renderButton();
         frame.renderframe();
     }
 
+    Mix_FreeMusic(bgMusic);
     TTF_CloseFont(font);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    Mix_CloseAudio();
+    IMG_Quit();
     TTF_Quit();
     SDL_Quit();
     return 0;
