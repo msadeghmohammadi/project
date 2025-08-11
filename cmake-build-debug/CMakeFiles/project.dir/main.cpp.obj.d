@@ -216,4 +216,10 @@ CMakeFiles/project.dir/main.cpp.obj: \
  C:/MinGW/include/SDL2/SDL_sensor.h C:/MinGW/include/SDL2/SDL_shape.h \
  C:/MinGW/include/SDL2/SDL_system.h C:/MinGW/include/SDL2/SDL_timer.h \
  C:/MinGW/include/SDL2/SDL_version.h C:/MinGW/include/SDL2/SDL_ttf.h \
- C:/MinGW/include/SDL2/SDL.h C:/MinGW/include/SDL2/SDL_image.h
+ C:/MinGW/include/SDL2/SDL.h C:/MinGW/include/SDL2/SDL_image.h \
+ C:/MinGW/include/SDL2/SDL_mixer.h \
+ C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/fstream \
+ C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/codecvt.h \
+ C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/basic_file.h \
+ C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/c++io.h \
+ C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/fstream.tcc

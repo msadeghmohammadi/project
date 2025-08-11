@@ -27,6 +27,7 @@ CMakeFiles/project.dir/main.cpp.obj: C:/Users/asus/OneDrive/Documents/GitHub/pro
   C:/MinGW/include/SDL2/SDL_main.h \
   C:/MinGW/include/SDL2/SDL_messagebox.h \
   C:/MinGW/include/SDL2/SDL_metal.h \
+  C:/MinGW/include/SDL2/SDL_mixer.h \
   C:/MinGW/include/SDL2/SDL_mouse.h \
   C:/MinGW/include/SDL2/SDL_mutex.h \
   C:/MinGW/include/SDL2/SDL_pixels.h \
@@ -102,11 +103,13 @@ CMakeFiles/project.dir/main.cpp.obj: C:/Users/asus/OneDrive/Documents/GitHub/pro
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/basic_string.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/basic_string.tcc \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/char_traits.h \
+  C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/codecvt.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/concept_check.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/cpp_type_traits.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/cxxabi_forced.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/exception_defines.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/exception_ptr.h \
+  C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/fstream.tcc \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/functexcept.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/functional_hash.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/hash_bytes.h \
@@ -175,6 +178,7 @@ CMakeFiles/project.dir/main.cpp.obj: C:/Users/asus/OneDrive/Documents/GitHub/pro
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/ext/numeric_traits.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/ext/string_conversions.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/ext/type_traits.h \
+  C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/fstream \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/functional \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/initializer_list \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/ios \
@@ -185,8 +189,10 @@ CMakeFiles/project.dir/main.cpp.obj: C:/Users/asus/OneDrive/Documents/GitHub/pro
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/map \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/memory \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/atomic_word.h \
+  C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/basic_file.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/c++allocator.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/c++config.h \
+  C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/c++io.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/c++locale.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/cpu_defines.h \
   C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/ctype_base.h \
@@ -298,10 +304,6 @@ C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/numeric:
 
 C:/MinGW/include/SDL2/SDL_config.h:
 
-C:/MinGW/lib/gcc/mingw32/5.1.0/include/pmmintrin.h:
-
-C:/MinGW/include/sys/timeb.h:
-
 C:/MinGW/include/SDL2/SDL_endian.h:
 
 C:/MinGW/include/stdio.h:
@@ -355,6 +357,8 @@ C:/MinGW/include/SDL2/SDL_messagebox.h:
 C:/MinGW/include/SDL2/SDL_system.h:
 
 C:/MinGW/include/SDL2/SDL_metal.h:
+
+C:/MinGW/include/SDL2/SDL_mixer.h:
 
 C:/MinGW/include/SDL2/SDL_mouse.h:
 
@@ -432,6 +436,10 @@ C:/MinGW/include/signal.h:
 
 C:/MinGW/include/stdint.h:
 
+C:/MinGW/lib/gcc/mingw32/5.1.0/include/pmmintrin.h:
+
+C:/MinGW/include/sys/timeb.h:
+
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/xmmintrin.h:
 
 C:/MinGW/include/sys/types.h:
@@ -506,6 +514,12 @@ C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/basic_string.tcc:
 
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/char_traits.h:
 
+C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/ext/string_conversions.h:
+
+C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/exception:
+
+C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/codecvt.h:
+
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/cpp_type_traits.h:
 
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/opt_random.h:
@@ -519,6 +533,8 @@ C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/exception_defines.h:
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/mm3dnow.h:
 
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/exception_ptr.h:
+
+C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/fstream.tcc:
 
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/bits/functexcept.h:
 
@@ -624,10 +640,6 @@ C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/cwchar:
 
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/cwctype:
 
-C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/ext/string_conversions.h:
-
-C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/exception:
-
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/ext/atomicity.h:
 
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/ext/concurrence.h:
@@ -639,6 +651,8 @@ C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/ext/numeric_traits.h:
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/tuple:
 
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/ext/type_traits.h:
+
+C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/fstream:
 
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/functional:
 
@@ -656,9 +670,13 @@ C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/limits:
 
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/atomic_word.h:
 
+C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/basic_file.h:
+
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/c++allocator.h:
 
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/c++config.h:
+
+C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/c++io.h:
 
 C:/MinGW/lib/gcc/mingw32/5.1.0/include/c++/mingw32/bits/c++locale.h:
 
