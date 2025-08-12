@@ -308,6 +308,83 @@ public:
         }
     }
 };
+class MenuButton : public Button {
+private:
+    bool isOpen;
+    vector<string> items;
+    TTF_Font* font;
+    SDL_Renderer* renderer;
+    SDL_Rect rect;
+
+public:
+    MenuButton(SDL_Renderer* ren, const string& name, int x, int y, int w, int h,
+               TTF_Font* f, const vector<string>& menuItems)
+            : Button(ren, name, x, y, w, h, f),
+              isOpen(false), items(menuItems), font(f), renderer(ren)
+    {
+        rect = {x, y, w, h};
+    }
+
+    void doAction() override {
+        isOpen = !isOpen; // باز و بسته کردن منو
+    }
+
+    void renderMenu() {
+        // --- کشیدن دکمه اصلی ---
+        SDL_SetRenderDrawColor(renderer, 100, 100, 200, 255); // پس‌زمینه دکمه
+        SDL_RenderFillRect(renderer, &rect);
+
+        // متن دکمه اصلی
+        SDL_Color white = {255, 255, 255, 255};
+        SDL_Surface* surface = TTF_RenderText_Blended(font, getName().c_str(), white);
+        if (surface) {
+            SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+            int tw, th;
+            SDL_QueryTexture(texture, nullptr, nullptr, &tw, &th);
+            SDL_Rect textRect = {rect.x + (rect.w - tw) / 2, rect.y + (rect.h - th) / 2, tw, th};
+            SDL_RenderCopy(renderer, texture, nullptr, &textRect);
+            SDL_DestroyTexture(texture);
+            SDL_FreeSurface(surface);
+        }
+
+        // --- کشیدن آیتم‌ها اگر باز باشند ---
+        if (isOpen) {
+            int itemHeight = rect.h;
+            for (size_t i = 0; i < items.size(); ++i) {
+                SDL_Rect itemRect = {rect.x, rect.y + rect.h * (int)(i + 1), rect.w, itemHeight};
+                SDL_SetRenderDrawColor(renderer, 70, 70, 150, 255); // پس‌زمینه آیتم
+                SDL_RenderFillRect(renderer, &itemRect);
+
+                SDL_Surface* surfaceItem = TTF_RenderText_Blended(font, items[i].c_str(), white);
+                if (surfaceItem) {
+                    SDL_Texture* textureItem = SDL_CreateTextureFromSurface(renderer, surfaceItem);
+                    int tw, th;
+                    SDL_QueryTexture(textureItem, nullptr, nullptr, &tw, &th);
+                    SDL_Rect textRect = {itemRect.x + (itemRect.w - tw) / 2, itemRect.y + (itemRect.h - th) / 2, tw, th};
+                    SDL_RenderCopy(renderer, textureItem, nullptr, &textRect);
+                    SDL_DestroyTexture(textureItem);
+                    SDL_FreeSurface(surfaceItem);
+                }
+            }
+        }
+    }
+
+    bool handleClick(const SDL_Event& e) {
+        if (isClick(e)) { // کلیک روی دکمه اصلی
+            doAction();
+            return true;
+        }
+        if (isOpen && e.type == SDL_MOUSEBUTTONDOWN) { // کلیک روی آیتم‌ها
+            int index = (e.button.y - rect.y) / rect.h - 1;
+            if (index >= 0 && index < (int)items.size()) {
+                std::cout << "Selected: " << items[index] << "\n";
+                isOpen = false;
+                return true;
+            }
+        }
+        return false;
+    }
+};
 
 int main(int argc, char* argv[]) {
     showSplashScreen();
@@ -404,6 +481,95 @@ int main(int argc, char* argv[]) {
 
     bool running = true;
     bool f11Pressed = false;
+    vector<string> elements = {
+            "Voltage Source (v)",
+            "Current Source (c)",
+            "Diode (d)",
+            "Resistor (r)",
+            "Ground (gnd)",
+            "Capacitor (cap)",
+            "Inductor (ind)"
+    };
+
+    // اصلاح شده MenuButton:
+    class MenuButton : public Button {
+    private:
+        bool isOpen;
+        vector<string> items;
+        TTF_Font* font;
+        SDL_Renderer* renderer;
+        SDL_Rect rect;
+
+    public:
+        MenuButton(SDL_Renderer* ren, const string& name, int x, int y, int w, int h,
+                   TTF_Font* f, const vector<string>& menuItems)
+                : Button(ren, name, x, y, w, h, f),
+                  isOpen(false), items(menuItems), font(f), renderer(ren)
+        {
+            rect = {x, y, w, h};
+        }
+
+        void doAction() override {
+            isOpen = !isOpen;
+        }
+
+        void renderMenu() {
+            // دکمه اصلی
+            SDL_SetRenderDrawColor(renderer, 100, 100, 200, 255);
+            SDL_RenderFillRect(renderer, &rect);
+
+            SDL_Color white = {255, 255, 255, 255};
+            SDL_Surface* surface = TTF_RenderText_Blended(font, getName().c_str(), white);
+            if (surface) {
+                SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+                int tw, th;
+                SDL_QueryTexture(texture, nullptr, nullptr, &tw, &th);
+                SDL_Rect textRect = {rect.x + (rect.w - tw) / 2, rect.y + (rect.h - th) / 2, tw, th};
+                SDL_RenderCopy(renderer, texture, nullptr, &textRect);
+                SDL_DestroyTexture(texture);
+                SDL_FreeSurface(surface);
+            }
+
+            // آیتم‌های منو
+            if (isOpen) {
+                int itemHeight = rect.h;
+                for (size_t i = 0; i < items.size(); ++i) {
+                    SDL_Rect itemRect = {rect.x, rect.y + rect.h * (int)(i + 1), rect.w, itemHeight};
+                    SDL_SetRenderDrawColor(renderer, 70, 70, 150, 255);
+                    SDL_RenderFillRect(renderer, &itemRect);
+
+                    SDL_Surface* surfaceItem = TTF_RenderText_Blended(font, items[i].c_str(), white);
+                    if (surfaceItem) {
+                        SDL_Texture* textureItem = SDL_CreateTextureFromSurface(renderer, surfaceItem);
+                        int tw, th;
+                        SDL_QueryTexture(textureItem, nullptr, nullptr, &tw, &th);
+                        SDL_Rect textRect = {itemRect.x + (itemRect.w - tw) / 2, itemRect.y + (itemRect.h - th) / 2, tw, th};
+                        SDL_RenderCopy(renderer, textureItem, nullptr, &textRect);
+                        SDL_DestroyTexture(textureItem);
+                        SDL_FreeSurface(surfaceItem);
+                    }
+                }
+            }
+        }
+
+        bool handleClick(const SDL_Event& e) {
+            if (isClick(e)) {
+                doAction();
+                return true;
+            }
+            if (isOpen && e.type == SDL_MOUSEBUTTONDOWN) {
+                int index = (e.button.y - rect.y) / rect.h - 1;
+                if (index >= 0 && index < (int)items.size()) {
+                    std::cout << "Selected: " << items[index] << "\n";
+                    isOpen = false;
+                    return true;
+                }
+            }
+            return false;
+        }
+    };
+
+    MenuButton menuBtn(renderer, "Menu", dm.w - 150, 20, 120, 40, font, elements);
 
     while (running) {
         running = frame.nextEvent();
@@ -413,6 +579,10 @@ int main(int argc, char* argv[]) {
         }
 
         for (const auto& e : frame.getEvents()) {
+            if (menuBtn.handleClick(e)) {
+                // انتخاب منو هندل شد
+            }
+
             if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
                 running = false;
             }
@@ -444,9 +614,13 @@ int main(int argc, char* argv[]) {
         }
         SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
         SDL_RenderClear(renderer);
+
         btn.renderButton();
         musicBtn.renderButton();
         frame.renderframe();
+        menuBtn.renderMenu();
+
+        SDL_RenderPresent(renderer);
     }
 
     Mix_FreeMusic(bgMusic);
