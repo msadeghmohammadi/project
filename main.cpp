@@ -12,16 +12,16 @@
 using namespace std;
 void showSplashScreen() {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        std::cerr << "SDL Init Error: " << SDL_GetError() << std::endl;
+        cerr << "SDL Init Error: " << SDL_GetError() << std::endl;
         return;
     }
     if (TTF_Init() < 0) {
-        std::cerr << "TTF Init Error: " << TTF_GetError() << std::endl;
+        cerr << "TTF Init Error: " << TTF_GetError() << std::endl;
         SDL_Quit();
         return;
     }
     if (IMG_Init(IMG_INIT_PNG) == 0) {
-        std::cerr << "IMG Init Error: " << IMG_GetError() << std::endl;
+        cerr << "IMG Init Error: " << IMG_GetError() << std::endl;
         TTF_Quit();
         SDL_Quit();
         return;
@@ -35,7 +35,7 @@ void showSplashScreen() {
             SDL_WINDOW_SHOWN
     );
     if (!splashWindow) {
-        std::cerr << "CreateWindow Error: " << SDL_GetError() << std::endl;
+        cerr << "CreateWindow Error: " << SDL_GetError() << std::endl;
         IMG_Quit();
         TTF_Quit();
         SDL_Quit();
@@ -44,7 +44,7 @@ void showSplashScreen() {
 
     SDL_Renderer* splashRenderer = SDL_CreateRenderer(splashWindow, -1, SDL_RENDERER_ACCELERATED);
     if (!splashRenderer) {
-        std::cerr << "CreateRenderer Error: " << SDL_GetError() << std::endl;
+        cerr << "CreateRenderer Error: " << SDL_GetError() << std::endl;
         SDL_DestroyWindow(splashWindow);
         IMG_Quit();
         TTF_Quit();
@@ -59,12 +59,12 @@ void showSplashScreen() {
         SDL_FreeSurface(splashSurface);
     }
     else {
-        std::cerr << "Failed to load splash image: " << IMG_GetError() << std::endl;
+        cerr << "Failed to load splash image: " << IMG_GetError() << std::endl;
     }
 
     TTF_Font* splashFont = TTF_OpenFont("ITCBLKAD.ttf", 36);
     if (!splashFont) {
-        std::cerr << "Font Load Error: " << TTF_GetError() << std::endl;
+        cerr << "Font Load Error: " << TTF_GetError() << std::endl;
     }
 
     SDL_Color white = {250, 250, 250, 255};
@@ -81,7 +81,6 @@ void showSplashScreen() {
         }
     }
 
-    // رندر کردن splash screen
     SDL_SetRenderDrawColor(splashRenderer, 0, 0, 0, 255);
     SDL_RenderClear(splashRenderer);
 
@@ -97,7 +96,7 @@ void showSplashScreen() {
 
     SDL_RenderPresent(splashRenderer);
 
-    SDL_Delay(3000);  // صبر 3 ثانیه
+    SDL_Delay(3000);
 
     if (textTexture) SDL_DestroyTexture(textTexture);
     if (splashTexture) SDL_DestroyTexture(splashTexture);
@@ -175,7 +174,7 @@ private:
 
 protected:
     SDL_Rect getRect() const { return rect; }
-    const std::string& getButtonName() const { return name; }
+    const string& getButtonName() const { return name; }
     SDL_Renderer* getRenderer() const { return renderer; }
 
 public:
@@ -241,9 +240,9 @@ public:
 
 class SignalPlot {
 private:
-    std::string name;
-    std::vector<double> times;
-    std::vector<double> voltages;
+    string name;
+    vector<double> times;
+    vector<double> voltages;
     SDL_Color color;
 
 public:
@@ -254,7 +253,7 @@ public:
             : name(n), times(t), voltages(v), color(c)
     {
         if (t.size() != v.size()) {
-            throw std::runtime_error("Times and voltages vector sizes do not match");
+            throw runtime_error("Times and voltages vector sizes do not match");
         }
     }
 
@@ -624,6 +623,80 @@ public:
     }
 };
 
+class MenuButton : public Button {
+private:
+    bool isOpen;
+    vector<string> items;
+    TTF_Font* font;
+    SDL_Renderer* renderer;
+    SDL_Rect rect;
+
+public:
+    MenuButton(SDL_Renderer* ren, const string& name, int x, int y, int w, int h,
+               TTF_Font* f, const vector<string>& menuItems)
+            : Button(ren, name, x, y, w, h, f),
+              isOpen(false), items(menuItems), font(f), renderer(ren)
+    {
+        rect = {x, y, w, h};
+    }
+
+    void doAction() override {
+        isOpen = !isOpen;
+    }
+
+    void renderMenu() {
+        SDL_SetRenderDrawColor(renderer, 100, 100, 200, 255);
+        SDL_RenderFillRect(renderer, &rect);
+
+        SDL_Color white = {255, 255, 255, 255};
+        SDL_Surface* surface = TTF_RenderText_Blended(font, getName().c_str(), white);
+        if (surface) {
+            SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+            int tw, th;
+            SDL_QueryTexture(texture, nullptr, nullptr, &tw, &th);
+            SDL_Rect textRect = {rect.x + (rect.w - tw) / 2, rect.y + (rect.h - th) / 2, tw, th};
+            SDL_RenderCopy(renderer, texture, nullptr, &textRect);
+            SDL_DestroyTexture(texture);
+            SDL_FreeSurface(surface);
+        }
+
+        if (isOpen) {
+            int itemHeight = rect.h;
+            for (size_t i = 0; i < items.size(); ++i) {
+                SDL_Rect itemRect = {rect.x, rect.y + rect.h * (int)(i + 1), rect.w, itemHeight};
+                SDL_SetRenderDrawColor(renderer, 70, 70, 150, 255);
+                SDL_RenderFillRect(renderer, &itemRect);
+
+                SDL_Surface* surfaceItem = TTF_RenderText_Blended(font, items[i].c_str(), white);
+                if (surfaceItem) {
+                    SDL_Texture* textureItem = SDL_CreateTextureFromSurface(renderer, surfaceItem);
+                    int tw, th;
+                    SDL_QueryTexture(textureItem, nullptr, nullptr, &tw, &th);
+                    SDL_Rect textRect = {itemRect.x + (itemRect.w - tw) / 2, itemRect.y + (itemRect.h - th) / 2, tw, th};
+                    SDL_RenderCopy(renderer, textureItem, nullptr, &textRect);
+                    SDL_DestroyTexture(textureItem);
+                    SDL_FreeSurface(surfaceItem);
+                }
+            }
+        }
+    }
+
+    bool handleClick(const SDL_Event& e) {
+        if (isClick(e)) {
+            doAction();
+            return true;
+        }
+        if (isOpen && e.type == SDL_MOUSEBUTTONDOWN) {
+            int index = (e.button.y - rect.y) / rect.h - 1;
+            if (index >= 0 && index < (int)items.size()) {
+                std::cout << "Selected: " << items[index] << "\n";
+                isOpen = false;
+                return true;
+            }
+        }
+        return false;
+    }
+};
 int main(int argc, char* argv[]) {
     showSplashScreen();
     Circuit circuit;
@@ -703,9 +776,19 @@ int main(int argc, char* argv[]) {
         Mix_PlayMusic(bgMusic, -1);
     }
 
-    MusicToggleButton musicBtn(renderer, "Toggle Music", 0, 0, 200, 50, font, bgMusic);
-    SignalMenuButton signalBtn(renderer, "signal", 201, 0, 150, 50, font, circuit);
-    TransientButton tBtn(renderer, "Transient", 200, 200, 150, 50, font, circuit);
+    MusicToggleButton musicBtn(renderer, "Toggle Music", 0, 0, 150, 50, font, bgMusic);
+    SignalMenuButton signalBtn(renderer, "signal", 151, 0, 150, 50, font, circuit);
+    TransientButton tBtn(renderer, "Transient", 151, 200, 150, 50, font, circuit);
+    vector<string> elements = {
+            "Voltage Source (v)",
+            "Current Source (c)",
+            "Diode (d)",
+            "Resistor (r)",
+            "Ground (gnd)",
+            "Capacitor (cap)",
+            "Inductor (ind)"
+    };
+    MenuButton menuBtn(renderer, "Menu", 302, 0, 120, 50, font, elements);
 
     signalBtn.onOptionSelected = [&](const string& option) {
         if (option == "Transient") {
@@ -728,8 +811,12 @@ int main(int argc, char* argv[]) {
         if (frame.containsEvent(SDL_QUIT)) {
             running = false;
         }
-
         for (const auto& e : frame.getEvents()) {
+
+            if (menuBtn.handleClick(e)) {
+                // انتخاب منو هندل شد
+            }
+
             if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
                 running = false;
             }
@@ -769,9 +856,10 @@ int main(int argc, char* argv[]) {
         int w, h;
         SDL_GetRendererOutputSize(renderer, &w, &h);
         tBtn.renderInputs(renderer, w, h);
-
         tBtn.renderIfReady(renderer);
         frame.renderframe();
+        menuBtn.renderMenu();
+        SDL_RenderPresent(renderer);
     }
 
     Mix_FreeMusic(bgMusic);

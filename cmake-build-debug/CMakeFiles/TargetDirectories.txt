@@ -1,3 +1,3 @@
-C:/Users/Riz Pardazandeh/Documents/GitHub/project/cmake-build-debug/CMakeFiles/project.dir
-C:/Users/Riz Pardazandeh/Documents/GitHub/project/cmake-build-debug/CMakeFiles/edit_cache.dir
-C:/Users/Riz Pardazandeh/Documents/GitHub/project/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+C:/Users/asus/OneDrive/Documents/GitHub/project/cmake-build-debug/CMakeFiles/project.dir
+C:/Users/asus/OneDrive/Documents/GitHub/project/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/asus/OneDrive/Documents/GitHub/project/cmake-build-debug/CMakeFiles/rebuild_cache.dir
