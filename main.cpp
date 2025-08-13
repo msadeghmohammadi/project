@@ -75,6 +75,11 @@ private:
     SDL_Texture* textTexture;
     SDL_Renderer* renderer;
 
+protected:
+    SDL_Rect getRect() const { return rect; }
+    const std::string& getButtonName() const { return name; }
+    SDL_Renderer* getRenderer() const { return renderer; }
+
 public:
     Button(SDL_Renderer* ren, string name, int x, int y, int w, int h, TTF_Font* font)
             : renderer(ren), name(name), textTexture(nullptr) {
@@ -93,7 +98,7 @@ public:
         }
     }
 
-    void renderButton() {
+    virtual void renderButton() {
         SDL_SetRenderDrawColor(renderer, 100, 100, 200, 255);
         SDL_RenderFillRect(renderer, &rect);
 
@@ -136,55 +141,365 @@ public:
     virtual void doAction() = 0;
 };
 
-class signal {
+class SignalPlot {
 private:
-    string fileLocation;
-    ifstream file;
-    int chunkSize;
-    vector<pair<double,double>> currentChunk;
-    int probeNodeIndex = -1;
+    std::string name;
+    std::vector<double> times;
+    std::vector<double> voltages;
+    SDL_Color color;
 
 public:
-    signal(const string& loc, int chunk, int nodeIndex)
-            : fileLocation(loc), chunkSize(chunk), probeNodeIndex(nodeIndex) {}
-
-    void evaluateChunkSize() {
-        file.open(fileLocation);
-        if (!file.is_open()) throw runtime_error("Cannot open signal file");
-        file.clear();
-        file.seekg(0, ios::beg);
+    SignalPlot(const std::string& n,
+               const std::vector<double>& t,
+               const std::vector<double>& v,
+               SDL_Color c = {0, 0, 255, 255})
+            : name(n), times(t), voltages(v), color(c)
+    {
+        if (t.size() != v.size()) {
+            throw std::runtime_error("Times and voltages vector sizes do not match");
+        }
     }
 
-    bool readNextChunk() {
-        currentChunk.clear();
-        double t, v;
-        int count = 0;
-        while (count < chunkSize && (file >> t >> v)) {
-            currentChunk.push_back({t, v});
-            count++;
-        }
-        return !currentChunk.empty();
-    }
+    void render(SDL_Renderer* renderer, int width, int height) const {
+        if (times.size() < 2) return;
 
-    void plotNextChunk(SDL_Renderer* renderer, int width, int height) {
-        if (currentChunk.empty()) return;
+        double minT = *std::min_element(times.begin(), times.end());
+        double maxT = *std::max_element(times.begin(), times.end());
+        double minV = *std::min_element(voltages.begin(), voltages.end());
+        double maxV = *std::max_element(voltages.begin(), voltages.end());
 
-        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-
-        double minV = currentChunk[0].second;
-        double maxV = minV;
-        for (auto& p : currentChunk) {
-            minV = min(minV, p.second);
-            maxV = max(maxV, p.second);
-        }
+        double rangeT = (maxT - minT == 0) ? 1 : (maxT - minT);
         double rangeV = (maxV - minV == 0) ? 1 : (maxV - minV);
 
-        for (size_t i = 1; i < currentChunk.size(); i++) {
-            int x1 = (i - 1) * width / chunkSize;
-            int y1 = height - static_cast<int>((currentChunk[i - 1].second - minV) / rangeV * height);
-            int x2 = i * width / chunkSize;
-            int y2 = height - static_cast<int>((currentChunk[i].second - minV) / rangeV * height);
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+
+        for (size_t i = 1; i < times.size(); i++) {
+            int x1 = static_cast<int>((times[i - 1] - minT) / rangeT * width);
+            int y1 = height - static_cast<int>((voltages[i - 1] - minV) / rangeV * height);
+
+            int x2 = static_cast<int>((times[i] - minT) / rangeT * width);
+            int y2 = height - static_cast<int>((voltages[i] - minV) / rangeV * height);
+
             SDL_RenderDrawLine(renderer, x1, y1, x2, y2);
+        }
+    }
+
+    void saveToCSV(const std::string& filename) const {
+        std::ofstream out(filename);
+        if (!out.is_open()) {
+            throw std::runtime_error("Cannot open file for writing: " + filename);
+        }
+        out << "Time,Voltage";
+        for (size_t i = 0; i < times.size(); i++) {
+            out << times[i] << "," << voltages[i] << "";
+        }
+        out.close();
+    }
+
+    const std::string& getName() const { return name; }
+};
+
+class InputBox {
+private:
+    SDL_Rect rect;
+    string text;
+    SDL_Color bgColor, textColor;
+    TTF_Font* font;
+    bool active = false;
+    Uint32 lastBlink = 0;
+    bool showCursor = true;
+
+public:
+    InputBox(int x, int y, int w, int h, TTF_Font* f)
+            : rect{ x, y, w, h }, font(f) {
+        bgColor = { 200, 200, 200, 255 };
+        textColor = { 0, 0, 0, 255 };
+    }
+
+    void setActive(bool state) { active = state; }
+    bool isActive() const { return active; }
+    SDL_Rect getRect() const { return rect; }
+    string getText() const { return text; }
+
+    bool isInside(int x, int y) const {
+        return (x > rect.x && x < rect.x + rect.w &&
+                y > rect.y && y < rect.y + rect.h);
+    }
+
+    bool handleEvent(const SDL_Event& e) {
+        if (active && e.type == SDL_TEXTINPUT) {
+            text += e.text.text;
+        }
+
+        if (active && e.type == SDL_KEYDOWN) {
+            if (e.key.keysym.sym == SDLK_TAB) {
+                return true;
+            }
+
+            if (e.key.keysym.sym == SDLK_BACKSPACE && !text.empty()) {
+                text.pop_back();
+            }
+            else if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_ESCAPE) {
+                active = false;
+                SDL_StopTextInput();
+            }
+        }
+    }
+
+
+    void render(SDL_Renderer* renderer) {
+        if (active) SDL_SetRenderDrawColor(renderer, 180, 220, 255, 255);
+        else SDL_SetRenderDrawColor(renderer, bgColor.r, bgColor.g, bgColor.b, bgColor.a);
+
+        SDL_RenderFillRect(renderer, &rect);
+
+        if (active) SDL_SetRenderDrawColor(renderer, 0, 120, 255, 255);
+        else SDL_SetRenderDrawColor(renderer, 0, 0, 0, 125);
+        SDL_RenderDrawRect(renderer, &rect);
+
+        int textWidth = 0;
+        if (!text.empty()) {
+            SDL_Surface* surf = TTF_RenderUTF8_Blended(font, text.c_str(), textColor);
+            SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
+            SDL_Rect dst = { rect.x + 5, rect.y + (rect.h - surf->h) / 2, surf->w, surf->h };
+            textWidth = surf->w;
+            SDL_RenderCopy(renderer, tex, NULL, &dst);
+            SDL_FreeSurface(surf);
+            SDL_DestroyTexture(tex);
+        }
+
+        if (active) {
+            if (SDL_GetTicks() - lastBlink > 500) {
+                showCursor = !showCursor;
+                lastBlink = SDL_GetTicks();
+            }
+            if (showCursor) {
+                int cx = rect.x + 5 + textWidth + 2;
+                SDL_RenderDrawLine(renderer, cx, rect.y + 5, cx, rect.y + rect.h - 5);
+            }
+        }
+    }
+
+};
+
+class TransientButton : public Button {
+private:
+    Circuit& circuit;
+    bool ready;
+    bool askingInput;
+    vector<double> times;
+    vector<double> voltages;
+    string nodeName;
+    TTF_Font* font;
+
+    InputBox boxNode;
+    InputBox boxTstart;
+    InputBox boxTstop;
+    InputBox boxStep;
+
+public:
+    TransientButton(SDL_Renderer* r, const std::string& text,
+                    int x, int y, int w, int h, TTF_Font* f,
+                    Circuit& c)
+            : Button(r, text, x, y, w, h, f),
+              circuit(c), ready(false), askingInput(false),
+              boxNode(400, 150, 200, 35, f),
+              boxTstart(400, 200, 200, 35, f),
+              boxTstop(400, 250, 200, 35, f),
+              boxStep(400, 300, 200, 35, f),
+              font(f)
+    {}
+
+    void doAction() override {
+        askingInput = true;
+    }
+
+    void setActiveBox(InputBox* box) {
+        boxNode.setActive(false);
+        boxTstart.setActive(false);
+        boxTstop.setActive(false);
+        boxStep.setActive(false);
+
+        if (box) {
+            box->setActive(true);
+            SDL_StartTextInput();
+        }
+    }
+
+    void handleEvent(const SDL_Event& e) {
+        if (!askingInput) return;
+
+        if (e.type == SDL_MOUSEBUTTONDOWN) {
+            boxNode.setActive(boxNode.isInside(e.button.x, e.button.y));
+            boxTstart.setActive(boxTstart.isInside(e.button.x, e.button.y));
+            boxTstop.setActive(boxTstop.isInside(e.button.x, e.button.y));
+            boxStep.setActive(boxStep.isInside(e.button.x, e.button.y));
+            if (boxNode.isActive() || boxTstart.isActive() || boxTstop.isActive() || boxStep.isActive()) {
+                SDL_StartTextInput();
+            } else {
+                SDL_StopTextInput();
+            }
+        }
+
+        if (e.type == SDL_TEXTINPUT || e.type == SDL_KEYDOWN) {
+            // ---- TAB navigation ----
+            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_TAB) {
+                if (boxNode.isActive()) {
+                    setActiveBox(&boxTstart);
+                } else if (boxTstart.isActive()) {
+                    setActiveBox(&boxTstop);
+                } else if (boxTstop.isActive()) {
+                    setActiveBox(&boxStep);
+                } else if (boxStep.isActive()) {
+                    setActiveBox(&boxNode);
+                }
+                return;
+            }
+
+            boxNode.handleEvent(e);
+            boxTstart.handleEvent(e);
+            boxTstop.handleEvent(e);
+            boxStep.handleEvent(e);
+
+            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_RETURN) {
+                runAnalysis();
+                askingInput = false;
+            }
+        }
+    }
+
+    void renderLabel(SDL_Renderer* renderer, TTF_Font* font, const std::string& text, int x, int y) {
+        SDL_Color color = {255, 255, 255, 255};
+        SDL_Surface* surf = TTF_RenderUTF8_Blended(font, text.c_str(), color);
+        SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
+        SDL_Rect dst = { x, y, surf->w, surf->h };
+        SDL_RenderCopy(renderer, tex, NULL, &dst);
+        SDL_FreeSurface(surf);
+        SDL_DestroyTexture(tex);
+    }
+
+    void renderInputs(SDL_Renderer* renderer, int screenWidth, int screenHeight) {
+        if (!askingInput) return;
+
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
+        SDL_Rect overlay = {0, 0, screenWidth, screenHeight};
+        SDL_RenderFillRect(renderer, &overlay);
+
+        renderLabel(renderer, font , "Node Name:", boxNode.getRect().x - 120, boxNode.getRect().y + 5);
+        renderLabel(renderer, font, "tStart:", boxTstart.getRect().x - 80, boxTstart.getRect().y + 5);
+        renderLabel(renderer, font, "tStop:", boxTstop.getRect().x - 80, boxTstop.getRect().y + 5);
+        renderLabel(renderer, font, "Step:", boxStep.getRect().x - 80, boxStep.getRect().y + 5);
+
+        boxNode.render(renderer);
+        boxTstart.render(renderer);
+        boxTstop.render(renderer);
+        boxStep.render(renderer);
+    }
+
+    void runAnalysis() {
+        nodeName = boxNode.getText();
+        double tStart = std::stod(boxTstart.getText());
+        double tStop  = std::stod(boxTstop.getText());
+        double step   = std::stod(boxStep.getText());
+
+        auto results = circuit.analyzeTransient(step, tStop, tStart);
+        times.clear();
+        voltages.clear();
+
+        double t = tStart;
+        for (auto& stepResult : results) {
+            times.push_back(t);
+            auto node = circuit.getNode(nodeName);
+            voltages.push_back(stepResult.count(node) ? stepResult.at(node) : 0.0);
+            t += step;
+        }
+        ready = true;
+    }
+
+    void renderIfReady(SDL_Renderer* renderer) {
+        if (ready) {
+            SignalPlot sig(nodeName, times, voltages, {255, 0, 0, 255});
+            int w, h;
+            SDL_GetRendererOutputSize(renderer, &w, &h);
+            sig.render(renderer, w, h);
+        }
+    }
+};
+
+class SignalMenuButton : public Button {
+private:
+    TTF_Font* font;
+    Circuit& circuit;
+    bool menuOpen = false;
+    vector<string> options = {"Transient", "Phase", "AC Sweep"};
+    int optionHeight = 40;
+
+public:
+    function<void(const string&)> onOptionSelected;
+
+    SignalMenuButton(SDL_Renderer* r, const string& text,
+                     int x, int y, int w, int h,
+                     TTF_Font* f, Circuit& c)
+            : Button(r, text, x, y, w, h, f), font(f), circuit(c) {}
+
+    void renderButton() override {
+        SDL_Rect mainRect = getRect();
+        SDL_Renderer* renderer = getRenderer();
+
+        SDL_SetRenderDrawColor(renderer, 100, 100, 200, 255);
+        SDL_RenderFillRect(renderer, &mainRect);
+
+        SDL_Color white = {255, 255, 255, 255};
+        SDL_Surface* surface = TTF_RenderText_Blended(font, getButtonName().c_str(), white);
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        SDL_Rect textRect = {mainRect.x + (mainRect.w - surface->w) / 2,
+                             mainRect.y + (mainRect.h - surface->h) / 2,
+                             surface->w, surface->h};
+        SDL_RenderCopy(renderer, texture, NULL, &textRect);
+        SDL_FreeSurface(surface);
+        SDL_DestroyTexture(texture);
+
+        if (menuOpen) {
+            for (size_t i = 0; i < options.size(); i++) {
+                SDL_Rect optRect = {mainRect.x, mainRect.y + mainRect.h + static_cast<int>(i) * optionHeight,
+                                    mainRect.w, optionHeight};
+                SDL_SetRenderDrawColor(renderer, 80, 80, 180, 255);
+                SDL_RenderFillRect(renderer, &optRect);
+                SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+                SDL_RenderDrawRect(renderer, &optRect);
+
+                SDL_Surface* optSurf = TTF_RenderText_Blended(font, options[i].c_str(), {255, 255, 255, 255});
+                SDL_Texture* optTex = SDL_CreateTextureFromSurface(renderer, optSurf);
+                SDL_Rect textRect = {optRect.x + 5, optRect.y + (optRect.h - optSurf->h) / 2,
+                                     optSurf->w, optSurf->h};
+                SDL_RenderCopy(renderer, optTex, NULL, &textRect);
+                SDL_DestroyTexture(optTex);
+                SDL_FreeSurface(optSurf);
+            }
+        }
+    }
+
+    void doAction() override {
+        menuOpen = !menuOpen;
+    }
+
+    void handleOptionClick(int mouseX, int mouseY) {
+        if (!menuOpen) return;
+
+        SDL_Rect mainRect = getRect();
+        for (size_t i = 0; i < options.size(); i++) {
+            SDL_Rect optRect = {mainRect.x, mainRect.y + mainRect.h + static_cast<int>(i) * optionHeight,
+                                mainRect.w, optionHeight};
+            if (mouseX >= optRect.x && mouseX <= optRect.x + optRect.w &&
+                mouseY >= optRect.y && mouseY <= optRect.y + optRect.h) {
+
+                menuOpen = false;
+
+                if (onOptionSelected) {
+                    onOptionSelected(options[i]);
+                }
+            }
         }
     }
 };
@@ -261,12 +576,12 @@ int main(int argc, char* argv[]) {
         SDL_FreeSurface(iconSurface);
     }
     else {
-        std::cerr << "Icon Load Error: " << IMG_GetError() << "\n";
+        cerr << "Icon Load Error: " << IMG_GetError() << "\n";
     }
 
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) {
-        std::cerr << "CreateRenderer Error: " << SDL_GetError() << "";
+        cerr << "CreateRenderer Error: " << SDL_GetError() << "";
         SDL_DestroyWindow(window);
         Mix_CloseAudio();
         IMG_Quit();
@@ -278,28 +593,30 @@ int main(int argc, char* argv[]) {
     Frame frame(renderer);
     TTF_Font* font = TTF_OpenFont(R"(ITCBLKAD.ttf)", 16);
     if (!font) {
-        std::cerr << "Font Error: " << TTF_GetError() << "";
+        cerr << "Font Error: " << TTF_GetError() << "";
     }
 
     Mix_Music* bgMusic = Mix_LoadMUS("downwithisrael.mp3");
     if (!bgMusic) {
-        std::cerr << "Failed to load music: " << Mix_GetError() << "\n";
+        cerr << "Failed to load music: " << Mix_GetError() << "\n";
     }
     else {
         Mix_PlayMusic(bgMusic, -1);
     }
 
-    class TestButton : public Button {
-    public:
-        TestButton(SDL_Renderer* r, const string& n, int x, int y, int w, int h, TTF_Font* f)
-                : Button(r, n, x, y, w, h, f) {}
-        void doAction() override {
-            std::cout << "Button Clicked: " << getName() << "\n";
+    MusicToggleButton musicBtn(renderer, "Toggle Music", 0, 0, 200, 50, font, bgMusic);
+    SignalMenuButton signalBtn(renderer, "signal", 201, 0, 150, 50, font, circuit);
+    TransientButton tBtn(renderer, "Transient", 200, 200, 150, 50, font, circuit);
+
+    signalBtn.onOptionSelected = [&](const string& option) {
+        if (option == "Transient") {
+            tBtn.doAction();
+        } else if (option == "Phase") {
+
+        } else if (option == "AC Sweep") {
+
         }
     };
-    TestButton btn(renderer, "signal", 100, 100, 150, 50, font);
-
-    MusicToggleButton musicBtn(renderer, "Toggle Music", 100, 200, 200, 50, font, bgMusic);
 
     SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 
@@ -331,22 +648,30 @@ int main(int argc, char* argv[]) {
                     SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
                 }
             }
-
             if (e.type == SDL_KEYUP && e.key.keysym.sym == SDLK_F11) {
                 f11Pressed = false;
             }
 
-            if (btn.isClick(e)) {
-                btn.doAction();
+            if (signalBtn.isClick(e)) {
+                signalBtn.doAction();
             }
+            if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+                signalBtn.handleOptionClick(e.button.x, e.button.y);
+            }
+            tBtn.handleEvent(e);
             if (musicBtn.isClick(e)) {
                 musicBtn.doAction();
             }
         }
         SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
         SDL_RenderClear(renderer);
-        btn.renderButton();
+        signalBtn.renderButton();
         musicBtn.renderButton();
+        int w, h;
+        SDL_GetRendererOutputSize(renderer, &w, &h);
+        tBtn.renderInputs(renderer, w, h);
+
+        tBtn.renderIfReady(renderer);
         frame.renderframe();
     }
 

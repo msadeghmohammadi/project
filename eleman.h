@@ -924,7 +924,7 @@ public:
         return nodeVoltages;
     }
 
-    vector<map<shared_ptr<Node>, double>> analyzeTransient(double tStep, double tStop, double tStart = 0.0) {
+    vector<map<shared_ptr<Node>, double>> analyzeTransient(double tStep, double tStop, double tStart) {
         vector<map<shared_ptr<Node>, double>> results;
 
         auto initialSolution = analyzeDC();
