@@ -10,7 +10,105 @@
 #include <fstream>
 
 using namespace std;
+void showSplashScreen() {
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        std::cerr << "SDL Init Error: " << SDL_GetError() << std::endl;
+        return;
+    }
+    if (TTF_Init() < 0) {
+        std::cerr << "TTF Init Error: " << TTF_GetError() << std::endl;
+        SDL_Quit();
+        return;
+    }
+    if (IMG_Init(IMG_INIT_PNG) == 0) {
+        std::cerr << "IMG Init Error: " << IMG_GetError() << std::endl;
+        TTF_Quit();
+        SDL_Quit();
+        return;
+    }
 
+    SDL_Window* splashWindow = SDL_CreateWindow(
+            "Welcome",
+            SDL_WINDOWPOS_CENTERED,
+            SDL_WINDOWPOS_CENTERED,
+            600, 400,
+            SDL_WINDOW_SHOWN
+    );
+    if (!splashWindow) {
+        std::cerr << "CreateWindow Error: " << SDL_GetError() << std::endl;
+        IMG_Quit();
+        TTF_Quit();
+        SDL_Quit();
+        return;
+    }
+
+    SDL_Renderer* splashRenderer = SDL_CreateRenderer(splashWindow, -1, SDL_RENDERER_ACCELERATED);
+    if (!splashRenderer) {
+        std::cerr << "CreateRenderer Error: " << SDL_GetError() << std::endl;
+        SDL_DestroyWindow(splashWindow);
+        IMG_Quit();
+        TTF_Quit();
+        SDL_Quit();
+        return;
+    }
+
+    SDL_Surface* splashSurface = IMG_Load("splash.png");
+    SDL_Texture* splashTexture = nullptr;
+    if (splashSurface) {
+        splashTexture = SDL_CreateTextureFromSurface(splashRenderer, splashSurface);
+        SDL_FreeSurface(splashSurface);
+    }
+    else {
+        std::cerr << "Failed to load splash image: " << IMG_GetError() << std::endl;
+    }
+
+    TTF_Font* splashFont = TTF_OpenFont("ITCBLKAD.ttf", 36);
+    if (!splashFont) {
+        std::cerr << "Font Load Error: " << TTF_GetError() << std::endl;
+    }
+
+    SDL_Color white = {250, 250, 250, 255};
+    SDL_Surface* textSurface = nullptr;
+    SDL_Texture* textTexture = nullptr;
+    int textW = 0, textH = 0;
+    if (splashFont) {
+        textSurface = TTF_RenderText_Blended(splashFont, "HS spice", white);
+        if (textSurface) {
+            textTexture = SDL_CreateTextureFromSurface(splashRenderer, textSurface);
+            textW = textSurface->w;
+            textH = textSurface->h;
+            SDL_FreeSurface(textSurface);
+        }
+    }
+
+    // رندر کردن splash screen
+    SDL_SetRenderDrawColor(splashRenderer, 0, 0, 0, 255);
+    SDL_RenderClear(splashRenderer);
+
+    if (splashTexture) {
+        SDL_Rect dstRect = {0, 0, 600, 400};
+        SDL_RenderCopy(splashRenderer, splashTexture, nullptr, &dstRect);
+    }
+
+    if (textTexture) {
+        SDL_Rect textRect = {(600 - textW) / 2, 0, textW, textH};
+        SDL_RenderCopy(splashRenderer, textTexture, nullptr, &textRect);
+    }
+
+    SDL_RenderPresent(splashRenderer);
+
+    SDL_Delay(3000);  // صبر 3 ثانیه
+
+    if (textTexture) SDL_DestroyTexture(textTexture);
+    if (splashTexture) SDL_DestroyTexture(splashTexture);
+    if (splashFont) TTF_CloseFont(splashFont);
+    SDL_DestroyRenderer(splashRenderer);
+    SDL_DestroyWindow(splashWindow);
+
+    IMG_Quit();
+    TTF_Quit();
+    SDL_Quit();
+}
 class Frame {
 private:
     int number;
@@ -527,6 +625,7 @@ public:
 };
 
 int main(int argc, char* argv[]) {
+    showSplashScreen();
     Circuit circuit;
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
         std::cerr << "SDL Init Error: " << SDL_GetError() << "";
